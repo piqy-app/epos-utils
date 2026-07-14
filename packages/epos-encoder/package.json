@@ -34,9 +34,9 @@
     "check": "tsc --noEmit",
     "prepublishOnly": "pnpm build"
   },
-  "dependencies": {
+use sta  "dependencies": {
     "@piqy/epos-ast": "workspace:^",
-    "iconv-lite": "1.0.0-alpha.2"
+    "iconv-lite": "0.7.3"
   },
   "peerDependencies": {
     "effect": "catalog:"
