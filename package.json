@@ -6,11 +6,17 @@
     "build": "pnpm --recursive build",
     "check": "pnpm --recursive check",
     "changeset": "changeset",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
     "release": "pnpm build && changeset publish",
     "version-packages": "changeset version"
   },
   "devDependencies": {
     "@changesets/cli": "catalog:",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:"
   },

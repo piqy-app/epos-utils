@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "ignorePatterns": [],
+  "overrides": [
+    {
+      "files": ["*.json", "**/*.json"],
+      "options": {
+        "useTabs": false
+      }
+    }
+  ],
+  "printWidth": 140,
+  "semi": false,
+  "singleQuote": true,
+  "sortPackageJson": false,
+  "useTabs": true
+}
