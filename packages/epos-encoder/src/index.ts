@@ -1,0 +1,6 @@
+export { CODEPAGES, DEFAULT_CODEPAGE } from './codepages.js'
+export { type EncoderContext, makeEncoderContext } from './context.js'
+export { type EncodeOptions, encode } from './encoder.js'
+export type { EncoderExtension } from './extension.js'
+export { defaultHandlers } from './handlers/index.js'
+export type { Handler, HandlersRecord } from './handlers.js'

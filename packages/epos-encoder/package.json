@@ -1,13 +1,13 @@
 {
-  "name": "@piqy/epos-ast",
-  "version": "0.1.0",
-  "description": "TypeScript types and utilities for representing ESC/POS commands as a unist syntax tree",
+  "name": "@piqy/epos-encoder",
+  "version": "0.0.0",
+  "description": "Encode EPOS abstract syntax trees as ESC/POS printer commands",
   "keywords": [
     "escpos",
+    "encoder",
     "pos",
     "printer",
-    "receipt",
-    "unist"
+    "receipt"
   ],
   "type": "module",
   "sideEffects": false,
@@ -23,17 +23,32 @@
     ".": {
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs"
+    },
+    "./effect": {
+      "types": "./dist/effect.d.mts",
+      "import": "./dist/effect.mjs"
     }
   },
   "scripts": {
-    "build": "tsdown src/index.ts --format esm --dts --clean",
+    "build": "tsdown src/index.ts src/effect.ts --format esm --dts --clean",
     "check": "tsc --noEmit",
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
-    "@types/unist": "^3.0.3"
+    "@piqy/epos-ast": "workspace:^",
+    "iconv-lite": "1.0.0-alpha.2"
+  },
+  "peerDependencies": {
+    "effect": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "effect": {
+      "optional": true
+    }
   },
   "devDependencies": {
+    "@types/node": "^26.1.1",
+    "effect": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:"
   },
@@ -47,11 +62,11 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/piqy-app/epos-utils.git",
-    "directory": "packages/epos-ast"
+    "directory": "packages/epos-encoder"
   },
   "bugs": {
     "url": "https://github.com/piqy-app/epos-utils/issues"
   },
-  "homepage": "https://github.com/piqy-app/epos-utils/tree/main/packages/epos-ast#readme",
+  "homepage": "https://github.com/piqy-app/epos-utils/tree/main/packages/epos-encoder#readme",
   "license": "MIT"
 }
