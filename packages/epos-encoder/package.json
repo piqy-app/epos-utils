@@ -34,7 +34,7 @@
     "check": "tsc --noEmit",
     "prepublishOnly": "pnpm build"
   },
-use sta  "dependencies": {
+  "dependencies": {
     "@piqy/epos-ast": "workspace:^",
     "iconv-lite": "0.7.3"
   },
