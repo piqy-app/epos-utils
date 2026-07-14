@@ -1,0 +1,57 @@
+{
+  "name": "@piqy/epos-ast",
+  "version": "0.0.0",
+  "description": "TypeScript types and utilities for representing ESC/POS commands as a unist syntax tree",
+  "keywords": [
+    "escpos",
+    "pos",
+    "printer",
+    "receipt",
+    "unist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsdown src/index.ts --format esm --dts --clean",
+    "check": "tsc --noEmit",
+    "prepublishOnly": "pnpm build"
+  },
+  "dependencies": {
+    "@types/unist": "catalog:"
+  },
+  "devDependencies": {
+    "tsdown": "catalog:",
+    "typescript": "catalog:"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/piqy-app/epos-utils.git",
+    "directory": "packages/epos-ast"
+  },
+  "bugs": {
+    "url": "https://github.com/piqy-app/epos-utils/issues"
+  },
+  "homepage": "https://github.com/piqy-app/epos-utils/tree/main/packages/epos-ast#readme",
+  "license": "MIT"
+}
