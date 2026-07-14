@@ -4,13 +4,14 @@
   "private": true,
   "scripts": {
     "build": "pnpm --recursive build",
-    "check": "pnpm --recursive check",
+    "check": "pnpm build && pnpm typecheck",
     "changeset": "changeset",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "release": "pnpm build && changeset publish",
+    "typecheck": "pnpm --recursive check",
     "version-packages": "changeset version"
   },
   "devDependencies": {

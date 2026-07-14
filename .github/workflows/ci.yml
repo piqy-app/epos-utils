@@ -22,4 +22,3 @@ jobs:
       - run: pnpm fmt:check
       - run: pnpm lint
       - run: pnpm check
-      - run: pnpm build
