@@ -1,5 +1,11 @@
 # @piqy/epos-encoder
 
+## 0.2.0
+
+### Minor Changes
+
+- b08da53: Require Effect v4 for the optional streaming entry point.
+
 ## 0.1.1
 
 ### Patch Changes
