@@ -22,10 +22,10 @@ const bytes = encode({
 
 ### Effect
 
-The optional Effect integration is provided as a separate entry point:
+The optional Effect v4 integration is provided as a separate entry point:
 
 ```sh
-pnpm add effect
+pnpm add effect@rc
 ```
 
 ```ts
