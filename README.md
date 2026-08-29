@@ -6,8 +6,8 @@ TypeScript libraries for working with ESC/POS printers.
 
 - [`@piqy/epos-ast`](packages/epos-ast): types and utilities for representing
   ESC/POS commands as a unist syntax tree.
-- [`@piqy/epos-encoder`](packages/epos-encoder): encode EPOS syntax trees as
-  ESC/POS printer commands.
+- [`@piqy/epos-codepages`](packages/epos-codepages): strict, tree-shakable character tables and an Effect registry.
+- [`@piqy/epos-encoder`](packages/epos-encoder): encode EPOS syntax trees as Effect programs that produce ESC/POS printer commands.
 
 ## Development
 
@@ -18,5 +18,7 @@ pinned pnpm version:
 corepack enable
 pnpm install
 pnpm check
+pnpm test
 pnpm build
+pnpm check:tree-shaking
 ```

@@ -27,7 +27,6 @@ const encodeTextWithCountry = Effect.fn(function* (value: string, country: Count
 		const encoded = yield* Effect.mapError(ctx.codepages.encode(codepage, character), (error) =>
 			Match.valueTags(error, {
 				CodepageNotLoadedError: (cause) => cause,
-				NoCodepageSupportsCharacterError: (cause) => cause,
 				UnencodableCharacterError: (cause) =>
 					new UnencodableCharacterError({ page: cause.page, index: index + cause.index, character: cause.character }),
 			}),

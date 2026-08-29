@@ -1,15 +1,21 @@
 import { Context, Effect, Layer } from 'effect'
 
-import { CodepageNotLoadedError, DuplicateCodepageError, NoCodepageSupportsCharacterError, type CodepageError } from './errors.js'
+import {
+	CodepageNotLoadedError,
+	DuplicateCodepageError,
+	NoCodepageSupportsCharacterError,
+	type CodepageEncodeError,
+	type CodepagePlanningError,
+} from './errors.js'
 import type { Codepage, CodepageSegment, PlanTextOptions } from './model.js'
 
 export namespace CodepageRegistry {
 	export interface Service {
 		readonly pages: readonly number[]
 		readonly resolve: (page: number) => Effect.Effect<Codepage, CodepageNotLoadedError>
-		readonly encode: (page: number, text: string) => Effect.Effect<Uint8Array, CodepageError>
+		readonly encode: (page: number, text: string) => Effect.Effect<Uint8Array, CodepageEncodeError>
 		readonly decode: (page: number, bytes: Uint8Array) => Effect.Effect<string, CodepageNotLoadedError>
-		readonly plan: (text: string, options?: PlanTextOptions) => Effect.Effect<readonly CodepageSegment[], CodepageError>
+		readonly plan: (text: string, options?: PlanTextOptions) => Effect.Effect<readonly CodepageSegment[], CodepagePlanningError>
 	}
 }
 
