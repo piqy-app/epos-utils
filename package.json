@@ -6,6 +6,7 @@
   "scripts": {
     "build": "vp run -r build",
     "check": "vp check",
+    "check:tree-shaking": "vp run -r build && node tools/check-codepage-tree-shaking.mjs",
     "changeset": "changeset",
     "fmt": "vp fmt --write",
     "fmt:check": "vp fmt --check",
@@ -26,6 +27,7 @@
     "effect": "catalog:",
     "publint": "^0.3.24",
     "typescript": "^7.0.2",
+    "vite": "catalog:",
     "vite-plus": "catalog:"
   },
   "engines": {

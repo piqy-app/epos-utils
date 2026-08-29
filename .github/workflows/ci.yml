@@ -22,4 +22,6 @@ jobs:
       - run: pnpm fmt:check
       - run: pnpm lint
       - run: pnpm check
+      - run: pnpm test
       - run: pnpm build
+      - run: node tools/check-codepage-tree-shaking.mjs
