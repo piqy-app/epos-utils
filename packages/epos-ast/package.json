@@ -29,6 +29,7 @@
   "types": "./dist/index.d.mts",
   "exports": {
     ".": "./dist/index.mjs",
+    "./schema": "./dist/schema.mjs",
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -42,6 +43,17 @@
   },
   "dependencies": {
     "@types/unist": "^3.0.3"
+  },
+  "devDependencies": {
+    "effect": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "effect": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=22"

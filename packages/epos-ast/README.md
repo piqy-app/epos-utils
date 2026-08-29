@@ -7,7 +7,18 @@ ESC/POS is a command system developed by Epson for controlling point-of-sale rec
 
 This specification is written in a [Web IDL](webidl)-like grammar.
 
-This package provides a pure TypeScript implementation of the specification.
+This package provides a pure TypeScript implementation of the specification. The main entry exports types only and has no Effect runtime dependency.
+
+Effect Schema codecs are available from the optional `@piqy/epos-ast/schema` entry:
+
+```ts
+import { Schema } from 'effect'
+import { Root } from '@piqy/epos-ast/schema'
+
+const decodeRoot = Schema.decodeUnknownEffect(Root)
+```
+
+These schemas use the AST `type` field as their discriminant. They do not add an `_tag` field.
 
 epos-ast can be used to:
 
