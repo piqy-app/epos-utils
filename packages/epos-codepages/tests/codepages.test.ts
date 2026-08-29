@@ -69,6 +69,17 @@ describe('single-byte code pages', () => {
 	)
 
 	it.effect(
+		'uses one PC1098 presentation-form cell for each Lam-Alef token',
+		Effect.fn(function* () {
+			for (const text of ['لآ', 'لا', 'لأ']) {
+				const encoded = yield* page041.encode(text)
+				expect(encoded).toHaveLength(1)
+				expect(page041.decode(encoded).normalize('NFKC')).toBe(text)
+			}
+		}),
+	)
+
+	it.effect(
 		'distinguishes the Assamese ISCII additions from Bengali',
 		Effect.fn(function* () {
 			expect(page067.canEncode('ৰৱ')).toBe(false)
