@@ -64,6 +64,7 @@ describe('single-byte code pages', () => {
 			const text = 'فارسی ۱۲۳'
 			const encoded = yield* page041.encode(text)
 			expect(page041.decode(encoded).normalize('NFKC')).toBe(text)
+			expect(page041.canEncode('ي')).toBe(false)
 		}),
 	)
 

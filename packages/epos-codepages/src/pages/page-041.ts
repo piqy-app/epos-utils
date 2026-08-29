@@ -50,6 +50,5 @@ export const page041 = singleByte({
 		['و', 0xea],
 		['ه', 0xeb],
 		['ی', 0xef],
-		['ي', 0xef],
 	],
 })

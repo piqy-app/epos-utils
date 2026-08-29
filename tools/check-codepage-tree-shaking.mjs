@@ -44,7 +44,7 @@ const cases = [
 		name: 'one-thai-page',
 		entry: 'pages/page-020.mjs',
 		imported: 'page020',
-		forbidden: ['日扱外額割検', '訂正品円種担当', 'ஂஃஅஆஇஈ'],
+		forbidden: ['日扱外額割検', '訂正品円種担当', 'ஂஃஅஆஇஈ', 'Thai Character Code 11'],
 	},
 ]
 

@@ -11,6 +11,12 @@ interface ThaiCodepageDefinition {
 	readonly extras?: readonly (readonly [byte: number, character: string])[]
 }
 
+const sequentialExtras = (start: number, characters: string) =>
+	Array.from(characters, (character, index) => [start + index, character] as const)
+
+export const thaiBoxDrawingExtras = sequentialExtras(0x80, '┌┐└┘│─├┤┴┬┼█')
+export const thaiArrowExtras = (start: number) => sequentialExtras(start, '←↑→↓')
+
 const thaiHigh = (definition: ThaiCodepageDefinition) => {
 	const high = Array.from({ length: 128 }, () => REPLACEMENT_CHARACTER)
 	const set = (byte: number, character: string) => {

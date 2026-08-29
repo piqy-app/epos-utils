@@ -32,7 +32,7 @@ Encoding fails with `CodepageNotLoadedError` when a page is absent and with `Une
 
 Import an individual page or a focused preset when size is important. Importing the package root, a Western page, or `presets/standard` does not load Kana, Kanji, Thai, or Indic tables.
 
-The Thai pages contain printer-positioned glyph variants that have no stable Unicode scalar value. These cells decode as unavailable. Normal Unicode Thai text uses the documented TIS-620-compatible cells and works on every Thai page.
+The Thai pages contain line graphics, normal Thai characters, and printer-positioned Thai glyph variants. Stable graphics and normal Unicode Thai text are supported. Position-only glyph variants with no stable Unicode scalar value decode as unavailable instead of using invented private-use values.
 
 Pages 254 and 255 have no fixed global mapping. Supply a custom `Codepage` for printer-defined characters.
 
