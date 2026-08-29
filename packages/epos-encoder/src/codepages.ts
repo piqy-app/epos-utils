@@ -1,2 +1,2 @@
-/** The default Epson character table is PC858 with euro support. */
-export const DEFAULT_CODEPAGE = 19
+/** The default ESC/POS character table is page 0 (PC437). */
+export const DEFAULT_CODEPAGE = 0

@@ -29,12 +29,12 @@ For a smaller bundle, make a Layer from only the selected pages:
 
 ```ts
 import { codepageLayer } from '@piqy/epos-codepages'
-import { page019 } from '@piqy/epos-codepages/pages/page-019'
+import { page000 } from '@piqy/epos-codepages/pages/page-000'
 
-const ReceiptCodepages = codepageLayer([page019])
+const ReceiptCodepages = codepageLayer([page000])
 ```
 
-Set `automaticCodepage: true` to segment text nodes without an explicit `codepage`. The planner keeps the current page when possible, then prefers pages already used by the print job. A `codepage` on a text node always remains explicit.
+Text nodes without an explicit `codepage` use automatic selection by default. The planner starts with page 0, keeps the current page when possible, and then prefers pages already used by the print job. A `codepage` on a text node always remains explicit. Set `automaticCodepage: false` to disable planning.
 
 ## Streams
 

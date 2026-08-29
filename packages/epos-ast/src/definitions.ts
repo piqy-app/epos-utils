@@ -285,8 +285,8 @@ export interface Root extends Parent {
 export interface Text extends Literal {
 	type: 'text'
 	/**
-	 * The ESC/POS codepage number for encoding during serialization.
-	 * Defaults to 19 (CP858) if not specified.
+	 * The explicit ESC/POS codepage number for encoding during serialization.
+	 * When absent, the encoder starts at page 0 and selects from loaded pages automatically.
 	 */
 	codepage?: number | undefined
 	/**

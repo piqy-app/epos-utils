@@ -38,7 +38,7 @@ export const prepareEncoder = Effect.fn(function* (options: EncodeOptions) {
 		handlers: processedOptions.handlers ?? {},
 		extensions,
 		codepage: processedOptions.codepage ?? DEFAULT_CODEPAGE,
-		automaticCodepage: processedOptions.automaticCodepage ?? false,
+		automaticCodepage: processedOptions.automaticCodepage ?? true,
 	}
 
 	return {

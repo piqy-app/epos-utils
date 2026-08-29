@@ -181,7 +181,7 @@ interface Text <: Literal {
 
 Text can be used where [**phrasing**](#phrasingcontent) content is expected. Its content is represented by its `value` field.
 
-A `codepage` field can be present. It specifies the ESC/POS codepage number for encoding during serialization. When not present, defaults to `19` (CP858). See [Codepage reference](#codepage-reference) for supported values.
+A `codepage` field can be present. It specifies the ESC/POS codepage number for encoding during serialization. When it is not present, the encoder automatically selects from the loaded pages and starts with page `0` (PC437). See [Codepage reference](#codepage-reference) for supported values.
 
 A `country` field can be present. It specifies country-specific character variations for serialization.
 
@@ -1297,70 +1297,70 @@ For [**Text**](#text) nodes, the stringifier tracks the current codepage/country
 
 ## Codepage reference
 
-| Code | Name       | Description                   |
-| ---- | ---------- | ----------------------------- |
-| 0    | PC437      | USA, Standard Europe          |
-| 1    | Katakana   | Katakana                      |
-| 2    | PC850      | Multilingual                  |
-| 3    | PC860      | Portuguese                    |
-| 4    | PC863      | Canadian-French               |
-| 5    | PC865      | Nordic                        |
-| 6    | Hiragana   | Hiragana                      |
-| 7    | Kanji      | One-pass printing Kanji       |
-| 8    | Kanji      | One-pass printing Kanji       |
-| 11   | PC851      | Greek                         |
-| 12   | PC853      | Turkish                       |
-| 13   | PC857      | Turkish                       |
-| 14   | PC737      | Greek                         |
-| 15   | ISO8859-7  | Greek                         |
-| 16   | WPC1252    | Windows Latin 1               |
-| 17   | PC866      | Cyrillic #2                   |
-| 18   | PC852      | Latin 2                       |
-| 19   | PC858      | Euro (default)                |
-| 20   | Thai42     | Thai Character Code 42        |
-| 21   | Thai11     | Thai Character Code 11        |
-| 22   | Thai13     | Thai Character Code 13        |
-| 23   | Thai14     | Thai Character Code 14        |
-| 24   | Thai16     | Thai Character Code 16        |
-| 25   | Thai17     | Thai Character Code 17        |
-| 26   | Thai18     | Thai Character Code 18        |
-| 30   | TCVN-3     | Vietnamese                    |
-| 31   | TCVN-3     | Vietnamese                    |
-| 32   | PC720      | Arabic                        |
-| 33   | WPC775     | Baltic Rim                    |
-| 34   | PC855      | Cyrillic                      |
-| 35   | PC861      | Icelandic                     |
-| 36   | PC862      | Hebrew                        |
-| 37   | PC864      | Arabic                        |
-| 38   | PC869      | Greek                         |
-| 39   | ISO8859-2  | Latin 2                       |
-| 40   | ISO8859-15 | Latin 9                       |
-| 41   | PC1098     | Farsi                         |
-| 42   | PC1118     | Lithuanian                    |
-| 43   | PC1119     | Lithuanian                    |
-| 44   | PC1125     | Ukrainian                     |
-| 45   | WPC1250    | Latin 2                       |
-| 46   | WPC1251    | Cyrillic                      |
-| 47   | WPC1253    | Greek                         |
-| 48   | WPC1254    | Turkish                       |
-| 49   | WPC1255    | Hebrew                        |
-| 50   | WPC1256    | Arabic                        |
-| 51   | WPC1257    | Baltic Rim                    |
-| 52   | WPC1258    | Vietnamese                    |
-| 53   | KZ-1048    | Kazakhstan                    |
-| 66   | Devanagari | India (Hindi, Sanskrit, etc.) |
-| 67   | Bengali    | India (Bengali, Assamese)     |
-| 68   | Tamil      | India (Tamil)                 |
-| 69   | Telugu     | India (Telugu)                |
-| 70   | Assamese   | India (Assamese)              |
-| 71   | Oriya      | India (Odia)                  |
-| 72   | Kannada    | India (Kannada)               |
-| 73   | Malayalam  | India (Malayalam)             |
-| 74   | Gujarati   | India (Gujarati)              |
-| 75   | Punjabi    | India (Punjabi/Gurmukhi)      |
-| 82   | Marathi    | India (Marathi)               |
-| 254  | Page 254   | User-defined                  |
-| 255  | Page 255   | User-defined                  |
+| Code | Name       | Description                    |
+| ---- | ---------- | ------------------------------ |
+| 0    | PC437      | USA, Standard Europe (default) |
+| 1    | Katakana   | Katakana                       |
+| 2    | PC850      | Multilingual                   |
+| 3    | PC860      | Portuguese                     |
+| 4    | PC863      | Canadian-French                |
+| 5    | PC865      | Nordic                         |
+| 6    | Hiragana   | Hiragana                       |
+| 7    | Kanji      | One-pass printing Kanji        |
+| 8    | Kanji      | One-pass printing Kanji        |
+| 11   | PC851      | Greek                          |
+| 12   | PC853      | Turkish                        |
+| 13   | PC857      | Turkish                        |
+| 14   | PC737      | Greek                          |
+| 15   | ISO8859-7  | Greek                          |
+| 16   | WPC1252    | Windows Latin 1                |
+| 17   | PC866      | Cyrillic #2                    |
+| 18   | PC852      | Latin 2                        |
+| 19   | PC858      | Euro                           |
+| 20   | Thai42     | Thai Character Code 42         |
+| 21   | Thai11     | Thai Character Code 11         |
+| 22   | Thai13     | Thai Character Code 13         |
+| 23   | Thai14     | Thai Character Code 14         |
+| 24   | Thai16     | Thai Character Code 16         |
+| 25   | Thai17     | Thai Character Code 17         |
+| 26   | Thai18     | Thai Character Code 18         |
+| 30   | TCVN-3     | Vietnamese                     |
+| 31   | TCVN-3     | Vietnamese                     |
+| 32   | PC720      | Arabic                         |
+| 33   | WPC775     | Baltic Rim                     |
+| 34   | PC855      | Cyrillic                       |
+| 35   | PC861      | Icelandic                      |
+| 36   | PC862      | Hebrew                         |
+| 37   | PC864      | Arabic                         |
+| 38   | PC869      | Greek                          |
+| 39   | ISO8859-2  | Latin 2                        |
+| 40   | ISO8859-15 | Latin 9                        |
+| 41   | PC1098     | Farsi                          |
+| 42   | PC1118     | Lithuanian                     |
+| 43   | PC1119     | Lithuanian                     |
+| 44   | PC1125     | Ukrainian                      |
+| 45   | WPC1250    | Latin 2                        |
+| 46   | WPC1251    | Cyrillic                       |
+| 47   | WPC1253    | Greek                          |
+| 48   | WPC1254    | Turkish                        |
+| 49   | WPC1255    | Hebrew                         |
+| 50   | WPC1256    | Arabic                         |
+| 51   | WPC1257    | Baltic Rim                     |
+| 52   | WPC1258    | Vietnamese                     |
+| 53   | KZ-1048    | Kazakhstan                     |
+| 66   | Devanagari | India (Hindi, Sanskrit, etc.)  |
+| 67   | Bengali    | India (Bengali, Assamese)      |
+| 68   | Tamil      | India (Tamil)                  |
+| 69   | Telugu     | India (Telugu)                 |
+| 70   | Assamese   | India (Assamese)               |
+| 71   | Oriya      | India (Odia)                   |
+| 72   | Kannada    | India (Kannada)                |
+| 73   | Malayalam  | India (Malayalam)              |
+| 74   | Gujarati   | India (Gujarati)               |
+| 75   | Punjabi    | India (Punjabi/Gurmukhi)       |
+| 82   | Marathi    | India (Marathi)                |
+| 254  | Page 254   | User-defined                   |
+| 255  | Page 255   | User-defined                   |
 
 ## Unsupported
 

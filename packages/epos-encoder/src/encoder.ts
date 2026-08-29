@@ -9,7 +9,9 @@ import { applyPostProcess, prepareEncoder } from './internal.js'
 export interface EncodeOptions {
 	readonly handlers?: Partial<HandlersRecord>
 	readonly extensions?: readonly EncoderExtension[]
+	/** Initial printer page. Defaults to page 0 (PC437). */
 	readonly codepage?: number
+	/** Plans pages for text nodes without an explicit page. Defaults to true. */
 	readonly automaticCodepage?: boolean
 }
 

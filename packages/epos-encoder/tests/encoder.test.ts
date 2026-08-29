@@ -2,6 +2,7 @@ import type { Root } from '@piqy/epos-ast'
 import { CodepageNotLoadedError, UnencodableCharacterError, codepageLayer } from '@piqy/epos-codepages'
 import { page000 } from '@piqy/epos-codepages/pages/page-000'
 import { page019 } from '@piqy/epos-codepages/pages/page-019'
+import { AvailableCodepagesLayer } from '@piqy/epos-codepages/presets/available'
 import { StandardCodepagesLayer } from '@piqy/epos-codepages/presets/standard'
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, Stream } from 'effect'
@@ -46,13 +47,15 @@ describe('encoder execution', () => {
 	)
 
 	it.effect(
-		'fails when the selected code page was removed from the Layer',
+		'uses page 0 when automatic selection is disabled',
 		Effect.fn(function* () {
-			const program = encode({ type: 'root', children: [{ type: 'text', value: 'text' }] }).pipe(Effect.provide(codepageLayer([page000])))
+			const program = encode({ type: 'root', children: [{ type: 'text', value: 'text' }] }, { automaticCodepage: false }).pipe(
+				Effect.provide(codepageLayer([page019])),
+			)
 			const error = yield* Effect.flip(program)
 			expect(error).toBeInstanceOf(CodepageNotLoadedError)
 			if (error instanceof CodepageNotLoadedError) {
-				expect(error.page).toBe(19)
+				expect(error.page).toBe(0)
 			}
 		}),
 	)
@@ -73,12 +76,38 @@ describe('encoder execution', () => {
 	)
 
 	it.effect(
-		'can select loaded pages automatically without changing explicit text nodes',
+		'selects loaded pages automatically by default',
 		Effect.fn(function* () {
-			const program = encode({ type: 'root', children: [{ type: 'text', value: 'é€é' }] }, { codepage: 0, automaticCodepage: true }).pipe(
+			const encoded = yield* encode({ type: 'root', children: [{ type: 'text', value: 'é€é' }] }).pipe(
 				Effect.provide(codepageLayer([page000, page019])),
 			)
-			yield* program
+			expect(encoded.byteLength).toBeGreaterThan(0)
+		}),
+	)
+
+	it.effect(
+		'automatically encodes text across the fixed Epson page groups',
+		Effect.fn(function* () {
+			const encoded = yield* encode({ type: 'root', children: [{ type: 'text', value: '€扱訂กৰپ' }] }).pipe(
+				Effect.provide(AvailableCodepagesLayer),
+			)
+			expect(encoded.byteLength).toBeGreaterThan(0)
+		}),
+	)
+
+	it.effect(
+		'does not replace an explicit AST code page with an automatic choice',
+		Effect.fn(function* () {
+			const error = yield* Effect.flip(
+				encode({ type: 'root', children: [{ type: 'text', value: '€', codepage: 0 }] }).pipe(
+					Effect.provide(codepageLayer([page000, page019])),
+				),
+			)
+			expect(error).toBeInstanceOf(UnencodableCharacterError)
+			if (error instanceof UnencodableCharacterError) {
+				expect(error.page).toBe(0)
+				expect(error.character).toBe('€')
+			}
 		}),
 	)
 
