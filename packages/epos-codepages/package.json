@@ -1,0 +1,81 @@
+{
+  "name": "@piqy/epos-codepages",
+  "version": "0.1.0",
+  "description": "Tree-shakable ESC/POS character code tables for Effect",
+  "keywords": [
+    "codepage",
+    "effect",
+    "escpos",
+    "printer"
+  ],
+  "homepage": "https://github.com/piqy-app/epos-utils/tree/main/packages/epos-codepages#readme",
+  "bugs": {
+    "url": "https://github.com/piqy-app/epos-utils/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/piqy-app/epos-utils.git",
+    "directory": "packages/epos-codepages"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./pages/page-000": "./dist/pages/page-000.mjs",
+    "./pages/page-002": "./dist/pages/page-002.mjs",
+    "./pages/page-003": "./dist/pages/page-003.mjs",
+    "./pages/page-004": "./dist/pages/page-004.mjs",
+    "./pages/page-005": "./dist/pages/page-005.mjs",
+    "./pages/page-011": "./dist/pages/page-011.mjs",
+    "./pages/page-013": "./dist/pages/page-013.mjs",
+    "./pages/page-014": "./dist/pages/page-014.mjs",
+    "./pages/page-015": "./dist/pages/page-015.mjs",
+    "./pages/page-016": "./dist/pages/page-016.mjs",
+    "./pages/page-017": "./dist/pages/page-017.mjs",
+    "./pages/page-018": "./dist/pages/page-018.mjs",
+    "./pages/page-019": "./dist/pages/page-019.mjs",
+    "./pages/page-033": "./dist/pages/page-033.mjs",
+    "./pages/page-034": "./dist/pages/page-034.mjs",
+    "./pages/page-035": "./dist/pages/page-035.mjs",
+    "./pages/page-036": "./dist/pages/page-036.mjs",
+    "./pages/page-037": "./dist/pages/page-037.mjs",
+    "./pages/page-038": "./dist/pages/page-038.mjs",
+    "./pages/page-039": "./dist/pages/page-039.mjs",
+    "./pages/page-040": "./dist/pages/page-040.mjs",
+    "./pages/page-044": "./dist/pages/page-044.mjs",
+    "./pages/page-045": "./dist/pages/page-045.mjs",
+    "./pages/page-046": "./dist/pages/page-046.mjs",
+    "./pages/page-047": "./dist/pages/page-047.mjs",
+    "./pages/page-048": "./dist/pages/page-048.mjs",
+    "./pages/page-049": "./dist/pages/page-049.mjs",
+    "./pages/page-050": "./dist/pages/page-050.mjs",
+    "./pages/page-051": "./dist/pages/page-051.mjs",
+    "./pages/page-052": "./dist/pages/page-052.mjs",
+    "./pages/page-053": "./dist/pages/page-053.mjs",
+    "./presets/standard": "./dist/presets/standard.mjs",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "vp pack",
+    "check": "vp check",
+    "prepublishOnly": "vp pack"
+  },
+  "dependencies": {
+    "effect": "catalog:"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
