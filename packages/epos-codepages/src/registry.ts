@@ -1,7 +1,7 @@
 import { Context, Effect, Layer } from 'effect'
 
-import { CodepageNotLoadedError, DuplicateCodepageError, type CodepageError } from './errors.js'
-import type { Codepage } from './model.js'
+import { CodepageNotLoadedError, DuplicateCodepageError, NoCodepageSupportsCharacterError, type CodepageError } from './errors.js'
+import type { Codepage, CodepageSegment, PlanTextOptions } from './model.js'
 
 export namespace CodepageRegistry {
 	export interface Service {
@@ -9,6 +9,7 @@ export namespace CodepageRegistry {
 		readonly resolve: (page: number) => Effect.Effect<Codepage, CodepageNotLoadedError>
 		readonly encode: (page: number, text: string) => Effect.Effect<Uint8Array, CodepageError>
 		readonly decode: (page: number, bytes: Uint8Array) => Effect.Effect<string, CodepageNotLoadedError>
+		readonly plan: (text: string, options?: PlanTextOptions) => Effect.Effect<readonly CodepageSegment[], CodepageError>
 	}
 }
 
@@ -36,8 +37,50 @@ export const makeCodepageRegistry = Effect.fn(function* (codepages: readonly Cod
 	const decode: CodepageRegistry.Service['decode'] = Effect.fn(function* (page, bytes) {
 		return (yield* resolve(page)).decode(bytes)
 	})
+	const plan: CodepageRegistry.Service['plan'] = Effect.fn(function* (text, options = {}) {
+		const candidates = options.candidatePages === undefined ? [...byPage.values()] : yield* Effect.forEach(options.candidatePages, resolve)
+		const byPreference = [
+			...candidates.filter((codepage) => codepage.page === options.currentPage),
+			...candidates.filter((codepage) => options.usedPages?.has(codepage.page) === true && codepage.page !== options.currentPage),
+			...candidates.filter((codepage) => codepage.page !== options.currentPage && options.usedPages?.has(codepage.page) !== true),
+		]
+		const segments: { page: number; text: string }[] = []
+		let index = 0
+		let currentPage = options.currentPage
+		while (index < text.length) {
+			const codePoint = text.codePointAt(index)
+			if (codePoint === undefined) {
+				break
+			}
+			const character = String.fromCodePoint(codePoint)
+			const selected =
+				byPreference.find((codepage) => codepage.page === currentPage && codepage.canEncode(character)) ??
+				byPreference.find((codepage) => codepage.canEncode(character))
+			if (selected === undefined) {
+				return yield* new NoCodepageSupportsCharacterError({
+					index,
+					character,
+					pages: candidates.map((codepage) => codepage.page),
+				})
+			}
+			const previous = segments.at(-1)
+			if (previous?.page === selected.page) {
+				previous.text += character
+			} else {
+				segments.push({ page: selected.page, text: character })
+			}
+			currentPage = selected.page
+			index += character.length
+		}
+		return yield* Effect.forEach(
+			segments,
+			Effect.fn(function* (segment) {
+				return { ...segment, bytes: yield* encode(segment.page, segment.text) }
+			}),
+		)
+	})
 
-	return CodepageRegistry.of({ pages: Object.freeze([...byPage.keys()]), resolve, encode, decode })
+	return CodepageRegistry.of({ pages: Object.freeze([...byPage.keys()]), resolve, encode, decode, plan })
 })
 
 export const codepageLayer = (codepages: readonly Codepage[]) => Layer.effect(CodepageRegistry, makeCodepageRegistry(codepages))

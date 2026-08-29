@@ -27,6 +27,7 @@ const encodeTextWithCountry = Effect.fn(function* (value: string, country: Count
 		const encoded = yield* Effect.mapError(ctx.codepages.encode(codepage, character), (error) =>
 			Match.valueTags(error, {
 				CodepageNotLoadedError: (cause) => cause,
+				NoCodepageSupportsCharacterError: (cause) => cause,
 				UnencodableCharacterError: (cause) =>
 					new UnencodableCharacterError({ page: cause.page, index: index + cause.index, character: cause.character }),
 			}),
@@ -56,19 +57,24 @@ export const text: Handler<Text> = Effect.fn(function* (node, ctx) {
 		ctx.lineUpsideDown = ctx.upsideDown
 	}
 
-	const codepage = node.codepage ?? ctx.codepage
-	if (codepage !== ctx.codepage) {
-		chunks.push(hex(ESC, 't', codepage))
-		ctx.codepage = codepage
-	}
-
 	if (node.country !== undefined && node.country !== ctx.country) {
 		chunks.push(hex(ESC, 'R', COUNTRY_CODES[node.country]))
 		ctx.country = node.country
 	}
 
 	const country = ctx.country ?? 'usa'
-	chunks.push(yield* encodeTextWithCountry(node.value, country, codepage, ctx))
+	const segments =
+		node.codepage === undefined && ctx.options.automaticCodepage
+			? yield* ctx.codepages.plan(node.value, { currentPage: ctx.codepage, usedPages: ctx.usedCodepages })
+			: [{ page: node.codepage ?? ctx.codepage, text: node.value }]
+	for (const segment of segments) {
+		if (segment.page !== ctx.codepage) {
+			chunks.push(hex(ESC, 't', segment.page))
+			ctx.codepage = segment.page
+		}
+		chunks.push(yield* encodeTextWithCountry(segment.text, country, segment.page, ctx))
+		ctx.usedCodepages.add(segment.page)
+	}
 	return concat(...chunks)
 })
 

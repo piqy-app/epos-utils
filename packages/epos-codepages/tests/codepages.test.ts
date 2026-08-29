@@ -1,8 +1,16 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
 
-import { CodepageNotLoadedError, CodepageRegistry, DuplicateCodepageError, codepageLayer, makeCodepageRegistry } from '../src/index.js'
+import {
+	CodepageNotLoadedError,
+	CodepageRegistry,
+	DuplicateCodepageError,
+	NoCodepageSupportsCharacterError,
+	codepageLayer,
+	makeCodepageRegistry,
+} from '../src/index.js'
 import { page000 } from '../src/pages/page-000.js'
+import { page019 } from '../src/pages/page-019.js'
 import { availableCodepages } from '../src/presets/available.js'
 
 const printableBytes = Uint8Array.from([
@@ -35,10 +43,36 @@ describe('code-page registry', () => {
 				const registry = yield* CodepageRegistry
 				const error = yield* Effect.flip(registry.encode(19, 'text'))
 				expect(error).toBeInstanceOf(CodepageNotLoadedError)
-				expect(error.page).toBe(19)
+				if (error instanceof CodepageNotLoadedError) {
+					expect(error.page).toBe(19)
+				}
 			},
 			Effect.provide(codepageLayer([page000])),
 		),
+	)
+
+	it.effect(
+		'keeps the current page until the text requires a switch',
+		Effect.fn(function* () {
+			const registry = yield* makeCodepageRegistry([page000, page019])
+			const segments = yield* registry.plan('é€é', { currentPage: 0 })
+			expect(segments.map(({ page, text }) => ({ page, text }))).toStrictEqual([
+				{ page: 0, text: 'é' },
+				{ page: 19, text: '€é' },
+			])
+		}),
+	)
+
+	it.effect(
+		'reports the first character that no loaded page supports',
+		Effect.fn(function* () {
+			const registry = yield* makeCodepageRegistry([page000, page019])
+			const error = yield* Effect.flip(registry.plan('ok 🧾'))
+			expect(error).toBeInstanceOf(NoCodepageSupportsCharacterError)
+			if (error instanceof NoCodepageSupportsCharacterError) {
+				expect(error.character).toBe('🧾')
+			}
+		}),
 	)
 
 	it.effect(

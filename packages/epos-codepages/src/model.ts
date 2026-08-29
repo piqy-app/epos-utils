@@ -10,6 +10,18 @@ export interface Codepage {
 	readonly decode: (bytes: Uint8Array) => string
 }
 
+export interface CodepageSegment {
+	readonly page: number
+	readonly text: string
+	readonly bytes: Uint8Array
+}
+
+export interface PlanTextOptions {
+	readonly currentPage?: number
+	readonly usedPages?: ReadonlySet<number>
+	readonly candidatePages?: readonly number[]
+}
+
 export interface SingleByteCodepageDefinition {
 	readonly page: number
 	readonly name: string

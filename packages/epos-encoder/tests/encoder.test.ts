@@ -1,6 +1,7 @@
 import type { Root } from '@piqy/epos-ast'
 import { CodepageNotLoadedError, UnencodableCharacterError, codepageLayer } from '@piqy/epos-codepages'
 import { page000 } from '@piqy/epos-codepages/pages/page-000'
+import { page019 } from '@piqy/epos-codepages/pages/page-019'
 import { StandardCodepagesLayer } from '@piqy/epos-codepages/presets/standard'
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, Stream } from 'effect'
@@ -68,6 +69,16 @@ describe('encoder execution', () => {
 			if (error instanceof UnencodableCharacterError) {
 				expect(error.character).toBe('@')
 			}
+		}),
+	)
+
+	it.effect(
+		'can select loaded pages automatically without changing explicit text nodes',
+		Effect.fn(function* () {
+			const program = encode({ type: 'root', children: [{ type: 'text', value: 'é€é' }] }, { codepage: 0, automaticCodepage: true }).pipe(
+				Effect.provide(codepageLayer([page000, page019])),
+			)
+			yield* program
 		}),
 	)
 

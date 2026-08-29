@@ -31,6 +31,7 @@ export interface EncoderContext {
 	marginLeft: number
 	printAreaWidth: number
 	tabStops: number[]
+	readonly usedCodepages: Set<number>
 
 	encode(node: Nodes): Effect.Effect<Uint8Array, EncoderError>
 }
@@ -59,6 +60,7 @@ export const createEncoderContext = (
 		marginLeft: 0,
 		printAreaWidth: 0,
 		tabStops: [],
+		usedCodepages: new Set([codepage]),
 
 		encode(node) {
 			return Effect.suspend(() => {

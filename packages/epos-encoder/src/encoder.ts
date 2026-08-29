@@ -10,6 +10,7 @@ export interface EncodeOptions {
 	readonly handlers?: Partial<HandlersRecord>
 	readonly extensions?: readonly EncoderExtension[]
 	readonly codepage?: number
+	readonly automaticCodepage?: boolean
 }
 
 /**

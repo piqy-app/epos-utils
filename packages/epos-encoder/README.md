@@ -34,6 +34,8 @@ import { page019 } from '@piqy/epos-codepages/pages/page-019'
 const ReceiptCodepages = codepageLayer([page019])
 ```
 
+Set `automaticCodepage: true` to segment text nodes without an explicit `codepage`. The planner keeps the current page when possible, then prefers pages already used by the print job. A `codepage` on a text node always remains explicit.
+
 ## Streams
 
 `encodeStream` creates an isolated printer-state context for each stream execution. It keeps that state between nodes in one execution.
