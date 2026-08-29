@@ -432,7 +432,7 @@ const INDIC_NUMERAL_TABLES = {
  * Character substitution tables per country.
  * Maps byte position to Unicode character.
  */
-export const CHARSET_TABLES = {
+const CHARSET_TABLES = {
 	...BASE_CHARSET_TABLES,
 	'india-devanagari': { ...BASE_CHARSET_TABLES.usa, ...INDIC_NUMERAL_TABLES['india-devanagari'] },
 	'india-bengali': { ...BASE_CHARSET_TABLES.usa, ...INDIC_NUMERAL_TABLES['india-bengali'] },
@@ -452,10 +452,7 @@ interface CountryEncoding {
 	readonly token: string
 }
 
-const reverseCharsetTables = new Map<Country, Map<string, number>>()
 const countryEncodingTables = new Map<Country, readonly CountryEncoding[]>()
-
-const getSubstitution = (table: CharTable, byte: number) => table[byte]
 
 const getCountryEncodings = (country: Country) => {
 	const cached = countryEncodingTables.get(country)
@@ -472,80 +469,10 @@ const getCountryEncodings = (country: Country) => {
 	return encodings
 }
 
-const getReverseCharsetTable = (country: Country) => {
-	const cached = reverseCharsetTables.get(country)
-	if (cached !== undefined) {
-		return cached
-	}
-
-	const reverse = new Map<string, number>()
-	for (const [byte, char] of Object.entries(CHARSET_TABLES[country])) {
-		if (char !== undefined) {
-			reverse.set(char, Number(byte))
-		}
-	}
-	reverseCharsetTables.set(country, reverse)
-	return reverse
-}
-
 export const matchCountryEncoding = (text: string, index: number, country: Country) =>
 	getCountryEncodings(country).find((encoding) => text.startsWith(encoding.token, index))
 
 export const isCountryByte = (byte: number, country: Country) => {
 	const table: CharTable = CHARSET_TABLES[country]
 	return table[byte] !== undefined
-}
-
-/**
- * Decodes a single byte using the specified country's character set.
- */
-export function decodeChar(byte: number, country: Country) {
-	const table = CHARSET_TABLES[country]
-	const substitution = getSubstitution(table, byte)
-	if (substitution !== undefined) {
-		return substitution
-	}
-	return String.fromCharCode(byte)
-}
-
-/**
- * Encodes a Unicode character to a byte using the specified country's character set.
- * Returns undefined if the character is not in the charset's substitution table.
- */
-export function encodeChar(char: string, country: Country) {
-	const reverseTable = getReverseCharsetTable(country)
-	const byte = reverseTable.get(char)
-	if (byte !== undefined) {
-		return byte
-	}
-
-	const code = char.charCodeAt(0)
-	if (code < 128) {
-		return code
-	}
-	return undefined
-}
-
-/**
- * Decodes a byte array to a string using the specified country's character set.
- */
-export function decodeText(bytes: Uint8Array, country: Country) {
-	let result = ''
-	for (const byte of bytes) {
-		result += decodeChar(byte, country)
-	}
-	return result
-}
-
-/**
- * Encodes a string to bytes using the specified country's character set.
- * Characters that cannot be encoded are replaced with '?'.
- */
-export function encodeText(text: string, country: Country) {
-	const bytes: number[] = []
-	for (const char of text) {
-		const byte = encodeChar(char, country)
-		bytes.push(byte ?? 0x3f) // '?' for unencodable characters
-	}
-	return new Uint8Array(bytes)
 }

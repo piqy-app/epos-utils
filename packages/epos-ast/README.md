@@ -1285,7 +1285,7 @@ Stringifying converts an epos-ast tree back to ESC/POS binary data.
 
 Each node type has a corresponding byte sequence documented in its "Yields" section. The stringifier maintains state to properly restore settings after nested nodes close.
 
-For [**Text**](#text) nodes, the stringifier tracks the current codepage/country and emits ESC t / ESC R commands only when they change. Text is encoded to bytes using the codepage specified on each node (or the default CP858 if not specified).
+For [**Text**](#text) nodes, the encoder tracks the current codepage and country. It emits ESC t or ESC R only when a setting changes. A text node can select a page directly. Otherwise, the encoder starts with page 0 and selects from the loaded pages automatically.
 
 ### Round-trip guarantees
 

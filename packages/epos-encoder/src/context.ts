@@ -4,7 +4,7 @@ import { Effect } from 'effect'
 
 import type { EncodeOptions } from './encoder.js'
 import { UnsupportedNodeError, type EncoderError } from './errors.js'
-import type { HandlersRecord } from './handlers.js'
+import { defaultHandlers } from './handlers/index.js'
 
 /**
  * Context passed through AST traversal during encoding.
@@ -12,7 +12,6 @@ import type { HandlersRecord } from './handlers.js'
 export interface EncoderContext {
 	codepage: number
 	country: Country | undefined
-	readonly handlers: HandlersRecord
 	readonly options: Required<EncodeOptions>
 	readonly codepages: CodepageRegistry.Service
 
@@ -36,19 +35,11 @@ export interface EncoderContext {
 	encode(node: Nodes): Effect.Effect<Uint8Array, EncoderError>
 }
 
-/**
- * Creates an EncoderContext with the given options and handlers.
- */
-export const createEncoderContext = (
-	handlers: HandlersRecord,
-	options: Required<EncodeOptions>,
-	codepage: number,
-	codepages: CodepageRegistry.Service,
-) => {
+/** Creates independent state for one encoder execution. */
+export const createEncoderContext = (options: Required<EncodeOptions>, codepages: CodepageRegistry.Service) => {
 	const ctx: EncoderContext = {
-		codepage,
+		codepage: options.codepage,
 		country: 'usa',
-		handlers,
 		options,
 		codepages,
 		alignment: 'left',
@@ -60,11 +51,11 @@ export const createEncoderContext = (
 		marginLeft: 0,
 		printAreaWidth: 0,
 		tabStops: [],
-		usedCodepages: new Set([codepage]),
+		usedCodepages: new Set([options.codepage]),
 
 		encode(node) {
 			return Effect.suspend(() => {
-				const handler = handlers[node.type]
+				const handler = defaultHandlers[node.type]
 				if (handler === undefined) {
 					return new UnsupportedNodeError({ nodeType: node.type })
 				}

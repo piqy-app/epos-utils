@@ -1,9 +1,8 @@
 import type { FlowContent } from '@piqy/epos-ast'
 import { Effect, Stream } from 'effect'
 
-import { ESC, hex } from './commands.js'
 import type { EncodeOptions } from './encoder.js'
-import { applyPostProcess, prepareEncoder } from './internal.js'
+import { prepareEncoder } from './internal.js'
 
 /**
  * Converts a stream of EPOS AST nodes to ESC/POS byte chunks.
@@ -13,10 +12,10 @@ import { applyPostProcess, prepareEncoder } from './internal.js'
  */
 export const encodeStream = <E, R>(stream: Stream.Stream<FlowContent, E, R>, options: EncodeOptions = {}) =>
 	Stream.unwrap(
-		Effect.map(prepareEncoder(options), ({ ctx, extensions }) =>
+		Effect.map(prepareEncoder(options), ({ ctx, initialization }) =>
 			Stream.concat(
-				Stream.make(hex(ESC, '@')),
-				Stream.mapEffect(stream, (node) => Effect.flatMap(ctx.encode(node), (bytes) => applyPostProcess(bytes, extensions))),
+				Stream.make(initialization),
+				Stream.mapEffect(stream, (node) => ctx.encode(node)),
 			),
 		),
 	)

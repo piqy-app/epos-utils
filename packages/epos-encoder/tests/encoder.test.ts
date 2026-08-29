@@ -2,7 +2,6 @@ import type { Root } from '@piqy/epos-ast'
 import { CodepageNotLoadedError, UnencodableCharacterError, codepageLayer } from '@piqy/epos-codepages'
 import { page000 } from '@piqy/epos-codepages/pages/page-000'
 import { page019 } from '@piqy/epos-codepages/pages/page-019'
-import { AvailableCodepagesLayer } from '@piqy/epos-codepages/presets/available'
 import { StandardCodepagesLayer } from '@piqy/epos-codepages/presets/standard'
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, Stream } from 'effect'
@@ -78,20 +77,32 @@ describe('encoder execution', () => {
 	it.effect(
 		'selects loaded pages automatically by default',
 		Effect.fn(function* () {
-			const encoded = yield* encode({ type: 'root', children: [{ type: 'text', value: 'é€é' }] }).pipe(
+			const automatic = encode({ type: 'root', children: [{ type: 'text', value: 'é€é' }] })
+			const explicit = encode({
+				type: 'root',
+				children: [
+					{ type: 'text', value: 'é', codepage: 0 },
+					{ type: 'text', value: '€é', codepage: 19 },
+				],
+			})
+			const [automaticBytes, explicitBytes] = yield* Effect.all([automatic, explicit]).pipe(
 				Effect.provide(codepageLayer([page000, page019])),
 			)
-			expect(encoded.byteLength).toBeGreaterThan(0)
+			expect(automaticBytes).toStrictEqual(explicitBytes)
 		}),
 	)
 
 	it.effect(
-		'automatically encodes text across the fixed Epson page groups',
+		'sends a configured start page after printer initialization',
 		Effect.fn(function* () {
-			const encoded = yield* encode({ type: 'root', children: [{ type: 'text', value: '€扱訂กৰپ' }] }).pipe(
-				Effect.provide(AvailableCodepagesLayer),
+			const bytes = yield* encode(
+				{ type: 'root', children: [{ type: 'text', value: '€' }] },
+				{ automaticCodepage: false, codepage: 19 },
+			).pipe(Effect.provide(codepageLayer([page019])))
+			const selectedPages = Array.from(bytes.entries()).flatMap(([index, byte]) =>
+				byte === 0x1b && bytes[index + 1] === 0x74 ? [bytes[index + 2]] : [],
 			)
-			expect(encoded.byteLength).toBeGreaterThan(0)
+			expect(selectedPages).toContain(19)
 		}),
 	)
 

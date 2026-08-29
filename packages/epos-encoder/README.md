@@ -10,7 +10,7 @@ pnpm add @piqy/epos-encoder @piqy/epos-ast @piqy/epos-codepages effect
 
 ## Usage
 
-The encoder requires a `CodepageRegistry` Layer. This makes the included character tables explicit and tree-shakable.
+The encoder requires a `CodepageRegistry` Layer. The Layer controls which character tables are included in the application bundle.
 
 ```ts
 import { encode } from '@piqy/epos-encoder'
@@ -34,7 +34,9 @@ import { page000 } from '@piqy/epos-codepages/pages/page-000'
 const ReceiptCodepages = codepageLayer([page000])
 ```
 
-Text nodes without an explicit `codepage` use automatic selection by default. The planner starts with page 0, keeps the current page when possible, and then prefers pages already used by the print job. A `codepage` on a text node always remains explicit. Set `automaticCodepage: false` to disable planning.
+Text nodes without a `codepage` use automatic selection by default. Selection starts with page 0. It keeps the current page when possible and then prefers pages already used by the print job. A `codepage` on a text node always takes priority. Set `automaticCodepage: false` to turn off automatic selection.
+
+Set `codepage` in the encoder options to start with another page. The encoder sends that selection after it initializes the printer.
 
 ## Streams
 
@@ -48,4 +50,4 @@ const stream = encodeStream(Stream.make({ type: 'text', value: 'Hello' })).pipe(
 const chunks = await Effect.runPromise(Stream.runCollect(stream))
 ```
 
-Encoding and extension failures use the Effect error channel. Encoder and code-page domain errors are Effect Schema tagged errors. Missing pages and unencodable text fail explicitly; there is no replacement-character fallback.
+Encoding failures use the Effect error channel. Encoder and code-page errors are Effect Schema tagged errors. A missing page or unsupported character causes a failure. The encoder does not insert replacement characters.

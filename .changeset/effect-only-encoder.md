@@ -2,4 +2,4 @@
 '@piqy/epos-encoder': minor
 ---
 
-Make encoding, streaming, handlers, and extensions Effect-native. Report invalid nodes with Effect Schema tagged errors and isolate mutable printer state for each execution.
+Make encoding and streaming return Effect values. Report invalid nodes with Effect Schema tagged errors and isolate printer state for each execution. Remove unused extension, handler, context, and country-helper exports.
