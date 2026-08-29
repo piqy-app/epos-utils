@@ -3,7 +3,7 @@ import { Effect } from 'effect'
 
 import { CodepageNotLoadedError, CodepageRegistry, DuplicateCodepageError, codepageLayer, makeCodepageRegistry } from '../src/index.js'
 import { page000 } from '../src/pages/page-000.js'
-import { standardCodepages } from '../src/presets/standard.js'
+import { availableCodepages } from '../src/presets/available.js'
 
 const printableBytes = Uint8Array.from([
 	...Array.from({ length: 0x7f - 0x20 }, (_, index) => index + 0x20),
@@ -12,9 +12,9 @@ const printableBytes = Uint8Array.from([
 
 describe('single-byte code pages', () => {
 	it.effect(
-		'round trips every encodable character in every standard table',
+		'round trips every encodable character in every available table',
 		Effect.fn(function* () {
-			for (const codepage of standardCodepages) {
+			for (const codepage of availableCodepages) {
 				for (const byte of printableBytes) {
 					const character = codepage.decode(Uint8Array.of(byte))
 					if (character !== '\uFFFD' && codepage.canEncode(character)) {

@@ -21,7 +21,12 @@ Encoding fails with `CodepageNotLoadedError` when a page is absent and with `Une
 
 ## Presets
 
-`@piqy/epos-codepages/presets/standard` provides the licensed DOS, ISO, and Windows tables that are currently generated from Unicode and ICU data.
+- `presets/standard` contains standard DOS, ISO, and Windows mappings.
+- `presets/vietnamese` contains split TCVN-3 pages 30 and 31 plus Windows-1258.
+- `presets/indic` contains ICU-verified ISCII pages. Assamese page 70 is not included because it differs from Bengali ISCII.
+- `presets/available` combines all currently verified pages.
+
+The Epson-only Kana, one-pass Kanji, Thai, Farsi, and Assamese variants remain intentionally absent until an independent, redistributable source is available. This package does not copy Epson images or third-party ESC/POS tables.
 
 Pages 254 and 255 have no fixed global mapping. Supply a custom `Codepage` for printer-defined characters.
 
