@@ -21,13 +21,19 @@ Encoding fails with `CodepageNotLoadedError` when a page is absent and with `Une
 
 ## Presets
 
-- `presets/standard` contains standard DOS, ISO, and Windows mappings.
+- `presets/standard` contains the named DOS, ISO, Windows, Farsi, and related standard mappings.
+- `presets/katakana` contains only page 1.
+- `presets/hiragana` contains only page 6.
+- `presets/kanji` contains only one-pass Kanji pages 7 and 8.
+- `presets/thai` contains pages 20 through 26 and shares one generated TIS-620-compatible repertoire.
 - `presets/vietnamese` contains split TCVN-3 pages 30 and 31 plus Windows-1258.
-- `presets/indic` contains ICU-verified ISCII pages. Assamese page 70 is not included because it differs from Bengali ISCII.
-- `presets/available` combines all currently verified pages.
+- `presets/indic` contains all documented ISCII pages, including the Assamese differences.
+- `presets/available` combines all 60 fixed pages. It intentionally includes Kanji data.
 
-PC853 and the Epson-only Kana, one-pass Kanji, Thai, Farsi, and Assamese variants remain intentionally absent until an independent, redistributable source is available. This package does not copy Epson images or third-party ESC/POS tables.
+Import an individual page or a focused preset when size is important. Importing the package root, a Western page, or `presets/standard` does not load Kana, Kanji, Thai, or Indic tables.
+
+The Thai pages contain printer-positioned glyph variants that have no stable Unicode scalar value. These cells decode as unavailable. Normal Unicode Thai text uses the documented TIS-620-compatible cells and works on every Thai page.
 
 Pages 254 and 255 have no fixed global mapping. Supply a custom `Codepage` for printer-defined characters.
 
-See `THIRD_PARTY_NOTICES.md` for mapping-data licenses. Epson table images are used only for verification and are not distributed.
+See `THIRD_PARTY_NOTICES.md` for mapping-data licenses. Epson-specific tables were implemented from the published character tables. Epson image assets are not distributed.

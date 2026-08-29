@@ -10,8 +10,14 @@ import {
 	makeCodepageRegistry,
 } from '../src/index.js'
 import { page000 } from '../src/pages/page-000.js'
+import { page007 } from '../src/pages/page-007.js'
+import { page008 } from '../src/pages/page-008.js'
 import { page019 } from '../src/pages/page-019.js'
+import { page041 } from '../src/pages/page-041.js'
+import { page067 } from '../src/pages/page-067.js'
+import { page070 } from '../src/pages/page-070.js'
 import { availableCodepages } from '../src/presets/available.js'
+import { thaiCodepages } from '../src/presets/thai.js'
 
 const printableBytes = Uint8Array.from([
 	...Array.from({ length: 0x7f - 0x20 }, (_, index) => index + 0x20),
@@ -33,6 +39,42 @@ describe('single-byte code pages', () => {
 			}
 		}),
 	)
+
+	it('publishes every fixed Epson page as an isolated codec', () => {
+		expect(availableCodepages.map((codepage) => codepage.page)).toStrictEqual([
+			0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+			41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 82,
+		])
+	})
+
+	it.effect(
+		'round trips normal Unicode Thai text through every Epson Thai layout',
+		Effect.fn(function* () {
+			const text = 'กำลังพิมพ์ภาษาไทย ๑๒๓'
+			for (const codepage of thaiCodepages) {
+				const encoded = yield* codepage.encode(text)
+				expect(codepage.decode(encoded)).toBe(text)
+			}
+		}),
+	)
+
+	it.effect(
+		'encodes semantic Persian text through PC1098 presentation forms',
+		Effect.fn(function* () {
+			const text = 'فارسی ۱۲۳'
+			const encoded = yield* page041.encode(text)
+			expect(page041.decode(encoded).normalize('NFKC')).toBe(text)
+		}),
+	)
+
+	it.effect(
+		'distinguishes the Assamese ISCII additions from Bengali',
+		Effect.fn(function* () {
+			expect(page067.canEncode('ৰৱ')).toBe(false)
+			const encoded = yield* page070.encode('ৰৱ')
+			expect(page070.decode(encoded)).toBe('ৰৱ')
+		}),
+	)
 })
 
 describe('code-page registry', () => {
@@ -49,6 +91,18 @@ describe('code-page registry', () => {
 			},
 			Effect.provide(codepageLayer([page000])),
 		),
+	)
+
+	it.effect(
+		'segments the two isolated one-pass Kanji pages only when required',
+		Effect.fn(function* () {
+			const registry = yield* makeCodepageRegistry([page007, page008])
+			const segments = yield* registry.plan('日訂')
+			expect(segments.map(({ page, text }) => ({ page, text }))).toStrictEqual([
+				{ page: 7, text: '日' },
+				{ page: 8, text: '訂' },
+			])
+		}),
 	)
 
 	it.effect(

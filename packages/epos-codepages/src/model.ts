@@ -29,4 +29,6 @@ export interface SingleByteCodepageDefinition {
 	readonly high: string
 	/** Changes to printable ASCII byte positions. */
 	readonly overrides?: readonly (readonly [byte: number, character: string])[]
+	/** Additional Unicode tokens accepted during encoding without changing canonical decoding. */
+	readonly aliases?: readonly (readonly [token: string, byte: number])[]
 }

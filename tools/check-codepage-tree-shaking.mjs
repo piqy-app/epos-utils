@@ -14,19 +14,37 @@ const cases = [
 		name: 'registry-only',
 		entry: 'index.mjs',
 		imported: 'codepageLayer',
-		forbidden: ['Çüéâäàåç', 'ஂஃஅஆஇஈ'],
+		forbidden: ['Çüéâäàåç', 'ஂஃஅஆஇஈ', '日扱外額割検', 'Thai Character Code 42'],
 	},
 	{
 		name: 'one-page',
 		entry: 'pages/page-019.mjs',
 		imported: 'page019',
-		forbidden: ['ஂஃஅஆஇஈ', 'ँंःअआइ'],
+		forbidden: ['ஂஃஅஆஇஈ', 'ँंःअआइ', '日扱外額割検', 'Thai Character Code 42'],
 	},
 	{
 		name: 'standard-preset',
 		entry: 'presets/standard.mjs',
 		imported: 'standardCodepages',
-		forbidden: ['ஂஃஅஆஇஈ', 'ँंःअआइ'],
+		forbidden: ['ஂஃஅஆஇஈ', 'ँंःअआइ', '日扱外額割検', 'Thai Character Code 42'],
+	},
+	{
+		name: 'katakana-preset',
+		entry: 'presets/katakana.mjs',
+		imported: 'katakanaCodepages',
+		forbidden: ['日扱外額割検', '訂正品円種担当', 'Thai Character Code 42'],
+	},
+	{
+		name: 'one-kanji-page',
+		entry: 'pages/page-007.mjs',
+		imported: 'page007',
+		forbidden: ['訂正品円種担当', 'Thai Character Code 42'],
+	},
+	{
+		name: 'one-thai-page',
+		entry: 'pages/page-020.mjs',
+		imported: 'page020',
+		forbidden: ['日扱外額割検', '訂正品円種担当', 'ஂஃஅஆஇஈ'],
 	},
 ]
 

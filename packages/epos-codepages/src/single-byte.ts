@@ -25,10 +25,9 @@ const decodeTable = (definition: SingleByteCodepageDefinition) => {
 	return table
 }
 
-const encodingCandidates = (table: readonly string[]) => {
+const encodingCandidates = (definition: SingleByteCodepageDefinition, table: readonly string[]) => {
 	const byFirstCharacter = new Map<string, EncodingCandidate[]>()
-	const add = (byte: number) => {
-		const token = table[byte]
+	const add = (token: string | undefined, byte: number) => {
 		if (token === undefined || token === REPLACEMENT_CHARACTER || token.length === 0) {
 			return
 		}
@@ -45,10 +44,13 @@ const encodingCandidates = (table: readonly string[]) => {
 	}
 
 	for (let byte = PRINTABLE_ASCII_START; byte <= PRINTABLE_ASCII_END; byte++) {
-		add(byte)
+		add(table[byte], byte)
 	}
 	for (let byte = HIGH_START; byte <= 0xff; byte++) {
-		add(byte)
+		add(table[byte], byte)
+	}
+	for (const [token, byte] of definition.aliases ?? []) {
+		add(token, byte)
 	}
 	return byFirstCharacter
 }
@@ -84,7 +86,7 @@ export const singleByte = (definition: SingleByteCodepageDefinition) => {
 	const table = decodeTable(definition)
 	let reverse: ReadonlyMap<string, readonly EncodingCandidate[]> | undefined
 	const getCandidates = () => {
-		reverse ??= encodingCandidates(table)
+		reverse ??= encodingCandidates(definition, table)
 		return reverse
 	}
 	const encode = (text: string) => Effect.fromResult(encodeResult(definition, getCandidates(), text))

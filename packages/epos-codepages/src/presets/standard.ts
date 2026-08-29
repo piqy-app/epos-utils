@@ -4,6 +4,7 @@ import { page003 } from '../pages/page-003.js'
 import { page004 } from '../pages/page-004.js'
 import { page005 } from '../pages/page-005.js'
 import { page011 } from '../pages/page-011.js'
+import { page012 } from '../pages/page-012.js'
 import { page013 } from '../pages/page-013.js'
 import { page014 } from '../pages/page-014.js'
 import { page015 } from '../pages/page-015.js'
@@ -20,6 +21,7 @@ import { page037 } from '../pages/page-037.js'
 import { page038 } from '../pages/page-038.js'
 import { page039 } from '../pages/page-039.js'
 import { page040 } from '../pages/page-040.js'
+import { page041 } from '../pages/page-041.js'
 import { page042 } from '../pages/page-042.js'
 import { page043 } from '../pages/page-043.js'
 import { page044 } from '../pages/page-044.js'
@@ -41,6 +43,7 @@ export const standardCodepages = [
 	page004,
 	page005,
 	page011,
+	page012,
 	page013,
 	page014,
 	page015,
@@ -57,6 +60,7 @@ export const standardCodepages = [
 	page038,
 	page039,
 	page040,
+	page041,
 	page042,
 	page043,
 	page044,
