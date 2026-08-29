@@ -34,7 +34,7 @@ export interface EncoderContext {
 /**
  * Creates an EncoderContext with the given options and handlers.
  */
-export const makeEncoderContext = (handlers: HandlersRecord, options: Required<EncodeOptions>, codepage: number): EncoderContext => {
+export const createEncoderContext = (handlers: HandlersRecord, options: Required<EncodeOptions>, codepage: number) => {
 	const ctx: EncoderContext = {
 		codepage,
 		country: 'usa',
@@ -55,7 +55,7 @@ export const makeEncoderContext = (handlers: HandlersRecord, options: Required<E
 			if (!handler) {
 				return new Uint8Array(0)
 			}
-			return handler(node as never, ctx)
+			return handler(node, ctx)
 		},
 	}
 

@@ -1,11 +1,11 @@
 import { DEFAULT_CODEPAGE } from './codepages.js'
-import { makeEncoderContext } from './context.js'
+import { createEncoderContext } from './context.js'
 import type { EncodeOptions } from './encoder.js'
 import type { EncoderExtension } from './extension.js'
 import type { HandlersRecord } from './handlers.js'
 import { defaultHandlers } from './handlers/index.js'
 
-const applyExtensions = (options: EncodeOptions, extensions: EncoderExtension[]): EncodeOptions => {
+const applyExtensions = (options: EncodeOptions, extensions: EncoderExtension[]) => {
 	let result = options
 	for (const extension of extensions) {
 		if (extension.transformOptions) {
@@ -15,7 +15,7 @@ const applyExtensions = (options: EncodeOptions, extensions: EncoderExtension[])
 	return result
 }
 
-const buildHandlers = (baseHandlers: HandlersRecord, options: EncodeOptions, extensions: EncoderExtension[]): HandlersRecord => {
+const buildHandlers = (baseHandlers: HandlersRecord, options: EncodeOptions, extensions: EncoderExtension[]) => {
 	let handlers = { ...baseHandlers, ...options.handlers }
 	for (const extension of extensions) {
 		if (extension.handlers) {
@@ -36,12 +36,12 @@ export const prepareEncoder = (options: EncodeOptions) => {
 	}
 
 	return {
-		ctx: makeEncoderContext(handlers, requiredOptions, requiredOptions.codepage),
+		ctx: createEncoderContext(handlers, requiredOptions, requiredOptions.codepage),
 		extensions,
 	}
 }
 
-export const applyPostProcess = (bytes: Uint8Array, extensions: EncoderExtension[]): Uint8Array => {
+export const applyPostProcess = (bytes: Uint8Array, extensions: EncoderExtension[]) => {
 	let result = bytes
 	for (const extension of extensions) {
 		if (extension.postProcess) {

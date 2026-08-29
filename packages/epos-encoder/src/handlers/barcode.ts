@@ -16,12 +16,10 @@ import type {
 	PDF417,
 	QRCode,
 } from '@piqy/epos-ast'
-import iconv from 'iconv-lite'
-
-import { concat, GS, hex, len16 } from '../commands.js'
+import { concat, GS, hex, len16, utf8 } from '../commands.js'
 import type { Handler } from '../handlers.js'
 
-const BARCODE_FORMAT_MAP: Record<BarcodeFormat, number> = {
+const BARCODE_FORMAT_MAP = {
 	'UPC-A': 65,
 	'UPC-E': 66,
 	EAN13: 67,
@@ -31,31 +29,43 @@ const BARCODE_FORMAT_MAP: Record<BarcodeFormat, number> = {
 	CODABAR: 71,
 	CODE93: 72,
 	CODE128: 73,
-}
+} satisfies Record<BarcodeFormat, number>
 
-const HRI_POSITION_MAP: Record<HriPosition, number> = {
+const HRI_POSITION_MAP = {
 	none: 0,
 	above: 1,
 	below: 2,
 	both: 3,
-}
+} satisfies Record<HriPosition, number>
 
-const HRI_FONT_MAP: Record<HriFont, number> = {
+const HRI_FONT_MAP = {
 	A: 0,
 	B: 1,
-}
+} satisfies Record<HriFont, number>
 
 // fn472 uses different values: 0=not added, 1=Font A, 2=Font B
-const COMPOSITE_HRI_FONT_MAP: Record<HriFont, number> = {
+const COMPOSITE_HRI_FONT_MAP = {
 	A: 1,
 	B: 2,
-}
+} satisfies Record<HriFont, number>
 
-const EC_MAP: Record<ErrorCorrection, number> = {
+const EC_MAP = {
 	L: 48,
 	M: 49,
 	Q: 50,
 	H: 51,
+} satisfies Record<ErrorCorrection, number>
+
+const encodeAscii = (text: string) => {
+	const bytes = new Uint8Array(text.length)
+	for (let index = 0; index < text.length; index++) {
+		const code = text.charCodeAt(index)
+		if (code > 0x7f) {
+			throw new RangeError(`Barcode data contains a non-ASCII character at index ${index}`)
+		}
+		bytes[index] = code
+	}
+	return bytes
 }
 
 /**
@@ -89,7 +99,7 @@ export const barcode: Handler<Barcode> = (node) => {
 
 	// CODE128 requires code set selection prefix
 	const codeSetPrefix = node.format === 'CODE128' ? `{${node.codeSet ?? 'B'}` : ''
-	const data = iconv.encode(codeSetPrefix + node.data, 'ascii')
+	const data = encodeAscii(codeSetPrefix + node.data)
 	chunks.push(hex(GS, 'k', m, data.length))
 	chunks.push(data)
 
@@ -102,7 +112,7 @@ export const barcode: Handler<Barcode> = (node) => {
  */
 export const qrCode: Handler<QRCode> = (node) => {
 	const chunks: Uint8Array[] = []
-	const data = iconv.encode(node.data, 'utf8')
+	const data = utf8(node.data)
 	const storeLen = data.length + 3
 
 	// select model (spec expects ASCII 49/50 for model 1/2)
@@ -131,7 +141,7 @@ export const qrCode: Handler<QRCode> = (node) => {
  */
 export const pdf417: Handler<PDF417> = (node) => {
 	const chunks: Uint8Array[] = []
-	const data = iconv.encode(node.data, 'utf8')
+	const data = utf8(node.data)
 	const storeLen = data.length + 3
 
 	if (node.columns !== undefined) {
@@ -178,7 +188,7 @@ export const pdf417: Handler<PDF417> = (node) => {
  */
 export const dataMatrix: Handler<DataMatrix> = (node) => {
 	const chunks: Uint8Array[] = []
-	const data = iconv.encode(node.data, 'utf8')
+	const data = utf8(node.data)
 	const storeLen = data.length + 3
 
 	// fn='B': symbol type, columns, rows (spec fn666, pL=5)
@@ -206,7 +216,7 @@ export const dataMatrix: Handler<DataMatrix> = (node) => {
  */
 export const maxiCode: Handler<MaxiCode> = (node) => {
 	const chunks: Uint8Array[] = []
-	const data = iconv.encode(node.data, 'utf8')
+	const data = utf8(node.data)
 	const storeLen = data.length + 3
 
 	if (node.mode !== undefined) {
@@ -229,7 +239,7 @@ export const maxiCode: Handler<MaxiCode> = (node) => {
  */
 export const aztecCode: Handler<AztecCode> = (node) => {
 	const chunks: Uint8Array[] = []
-	const data = iconv.encode(node.data, 'utf8')
+	const data = utf8(node.data)
 	const storeLen = data.length + 3
 
 	// fn='B': combined mode + layers (spec fn566, pL=4)
@@ -253,22 +263,22 @@ export const aztecCode: Handler<AztecCode> = (node) => {
 	return concat(...chunks)
 }
 
-const GS1_SYMBOLOGY_MAP: Record<GS1DataBarSymbology, number> = {
+const GS1_SYMBOLOGY_MAP = {
 	STACKED: 72,
 	'STACKED-OMNIDIRECTIONAL': 73,
 	'EXPANDED-STACKED': 76,
-}
+} satisfies Record<GS1DataBarSymbology, number>
 
-const COMPOSITE_LINE_BARCODE_MAP: Record<Exclude<CompositeLineBarcode, 'GS1-DATABAR'>, number> = {
+const COMPOSITE_LINE_BARCODE_MAP = {
 	EAN8: 65,
 	EAN13: 66,
 	'UPC-A': 67,
 	'UPC-E': 68,
 	'UPC-E-FULL': 69,
 	'GS1-128': 77,
-}
+} satisfies Record<Exclude<CompositeLineBarcode, 'GS1-DATABAR'>, number>
 
-const COMPOSITE_GS1_VARIANT_MAP: Record<CompositeGS1DataBarVariant, number> = {
+const COMPOSITE_GS1_VARIANT_MAP = {
 	OMNIDIRECTIONAL: 70,
 	TRUNCATED: 71,
 	STACKED: 72,
@@ -276,12 +286,12 @@ const COMPOSITE_GS1_VARIANT_MAP: Record<CompositeGS1DataBarVariant, number> = {
 	LIMITED: 74,
 	EXPANDED: 75,
 	'EXPANDED-STACKED': 76,
-}
+} satisfies Record<CompositeGS1DataBarVariant, number>
 
-const COMPOSITE_2D_MAP: Record<Composite2DSymbology, number> = {
+const COMPOSITE_2D_MAP = {
 	AUTO: 65,
 	'CC-C': 66,
-}
+} satisfies Record<Composite2DSymbology, number>
 
 /**
  * Encodes a GS1 DataBar (formerly RSS) barcode.
@@ -289,7 +299,7 @@ const COMPOSITE_2D_MAP: Record<Composite2DSymbology, number> = {
  */
 export const gs1DataBar: Handler<GS1DataBar> = (node) => {
 	const chunks: Uint8Array[] = []
-	const data = iconv.encode(node.data, 'utf8')
+	const data = utf8(node.data)
 	const n = GS1_SYMBOLOGY_MAP[node.symbology]
 	const storeLen = data.length + 4
 
@@ -346,14 +356,14 @@ export const composite: Handler<Composite> = (node) => {
 	}
 
 	// store line element (a='0')
-	const lineData = iconv.encode(node.lineElement.data, 'utf8')
+	const lineData = utf8(node.lineElement.data)
 	const lineStoreLen = lineData.length + 5
 	const [linePL, linePH] = len16(lineStoreLen)
 	chunks.push(hex(GS, '(', 'k', linePL, linePH, '4', 'P', '0', '0', lineB))
 	chunks.push(lineData)
 
 	// store 2D element (a='1')
-	const el2dData = iconv.encode(node.element2D.data, 'utf8')
+	const el2dData = utf8(node.element2D.data)
 	const el2dStoreLen = el2dData.length + 5
 	const [el2dPL, el2dPH] = len16(el2dStoreLen)
 	const el2dB = COMPOSITE_2D_MAP[node.element2D.symbology]

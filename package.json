@@ -2,27 +2,32 @@
   "name": "@piqy/epos-utils",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "build": "pnpm --recursive build",
-    "check": "pnpm build && pnpm typecheck",
+    "build": "vp run -r build",
+    "check": "vp check",
     "changeset": "changeset",
-    "fmt": "oxfmt",
-    "fmt:check": "oxfmt --check",
-    "lint": "oxlint",
-    "lint:fix": "oxlint --fix",
-    "release": "pnpm build && changeset publish",
-    "typecheck": "pnpm --recursive check",
+    "fmt": "vp fmt --write",
+    "fmt:check": "vp fmt --check",
+    "lint": "vp lint",
+    "lint:fix": "vp lint --fix",
+    "prepare": "effect-tsgo patch --typescript --oxlint",
+    "release": "vp run -r build && changeset publish",
     "version-packages": "changeset version"
   },
   "devDependencies": {
-    "@changesets/cli": "catalog:",
-    "oxfmt": "catalog:",
-    "oxlint": "catalog:",
-    "tsdown": "catalog:",
-    "typescript": "catalog:"
+    "@arethetypeswrong/core": "0.18.5",
+    "@changesets/cli": "3.0.1",
+    "@effect/tsgo": "0.38.0",
+    "@oxlint/plugins": "1.80.0",
+    "@types/node": "^26.1.1",
+    "effect": "catalog:",
+    "publint": "^0.3.24",
+    "typescript": "^7.0.2",
+    "vite-plus": "catalog:"
   },
   "engines": {
     "node": ">=22"
   },
-  "packageManager": "pnpm@11.22.0"
+  "packageManager": "pnpm@11.24.0"
 }

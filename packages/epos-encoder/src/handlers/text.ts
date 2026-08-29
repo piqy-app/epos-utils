@@ -1,6 +1,7 @@
-import { type Break, COUNTRY_CODES, type Country, type Tab, type Text, encodeChar } from '@piqy/epos-ast'
+import { type Break, type Country, type Tab, type Text } from '@piqy/epos-ast'
 import iconv from 'iconv-lite'
 
+import { COUNTRY_CODES, encodeChar } from '../charset.js'
 import { CODEPAGES, DEFAULT_CODEPAGE } from '../codepages.js'
 import { concat, ESC, HT, hex, LF } from '../commands.js'
 import type { Handler } from '../handlers.js'
@@ -9,8 +10,8 @@ import { ALIGN_MAP } from './shared.js'
 /**
  * Encodes text using country charset substitutions where applicable.
  */
-const encodeTextWithCountry = (value: string, country: Country, codepage: number): Uint8Array => {
-	const encoding = CODEPAGES[codepage] || CODEPAGES[DEFAULT_CODEPAGE]
+const encodeTextWithCountry = (value: string, country: Country, codepage: number) => {
+	const encoding = CODEPAGES[codepage] ?? CODEPAGES[DEFAULT_CODEPAGE] ?? 'cp437'
 	const bytes: number[] = []
 
 	for (const char of value) {
@@ -62,7 +63,7 @@ export const text: Handler<Text> = (node, ctx) => {
 		}
 	}
 
-	const encoding = CODEPAGES[codepage] || CODEPAGES[DEFAULT_CODEPAGE]
+	const encoding = CODEPAGES[codepage] ?? CODEPAGES[DEFAULT_CODEPAGE] ?? 'cp437'
 	if (node.country) {
 		chunks.push(encodeTextWithCountry(node.value, node.country, codepage))
 	} else {

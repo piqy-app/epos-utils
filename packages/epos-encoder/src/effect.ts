@@ -8,7 +8,7 @@ import { applyPostProcess, prepareEncoder } from './internal.js'
 /**
  * Converts a stream of EPOS AST nodes to ESC/POS byte chunks.
  */
-export const encodeStream = <E, R>(stream: Stream<FlowContent, E, R>, options: EncodeOptions = {}): Stream<Uint8Array, E, R> =>
+export const encodeStream = <E, R>(stream: Stream<FlowContent, E, R>, options: EncodeOptions = {}) =>
 	suspend(() => {
 		const { ctx, extensions } = prepareEncoder(options)
 		let initialized = false

@@ -1,9 +1,9 @@
-import type { Country } from './definitions'
+import type { Country } from '@piqy/epos-ast'
 
 /**
  * ESC/POS country code mapping (ESC R n command).
  */
-export const COUNTRY_CODES: Record<Country, number> = {
+export const COUNTRY_CODES = {
 	usa: 0,
 	france: 1,
 	germany: 2,
@@ -33,18 +33,11 @@ export const COUNTRY_CODES: Record<Country, number> = {
 	'india-gujarati': 74,
 	'india-punjabi': 75,
 	'india-marathi': 82,
-}
-
-/**
- * Reverse lookup from ESC/POS code to country name.
- */
-export const COUNTRY_NAMES: Record<number, Country> = Object.fromEntries(
-	Object.entries(COUNTRY_CODES).map(([name, code]) => [code, name as Country]),
-)
+} satisfies Record<Country, number>
 
 type CharTable = Partial<Record<number, string>>
 
-const BASE_CHARSET_TABLES: Record<string, CharTable> = {
+const BASE_CHARSET_TABLES = {
 	usa: {
 		35: '#',
 		36: '$',
@@ -297,9 +290,9 @@ const BASE_CHARSET_TABLES: Record<string, CharTable> = {
 		125: '}',
 		126: '~',
 	},
-}
+} satisfies Partial<Record<Country, CharTable>>
 
-const INDIC_NUMERAL_TABLES: Record<string, CharTable> = {
+const INDIC_NUMERAL_TABLES = {
 	'india-devanagari': {
 		48: '०',
 		49: '१',
@@ -432,54 +425,53 @@ const INDIC_NUMERAL_TABLES: Record<string, CharTable> = {
 		56: '८',
 		57: '९',
 	},
-}
+} satisfies Partial<Record<Country, CharTable>>
 
 /**
  * Character substitution tables per country.
  * Maps byte position to Unicode character.
  */
-export const CHARSET_TABLES: Record<Country, CharTable> = (() => {
-	const tables = {} as Record<Country, CharTable>
+export const CHARSET_TABLES = {
+	...BASE_CHARSET_TABLES,
+	'india-devanagari': { ...BASE_CHARSET_TABLES.usa, ...INDIC_NUMERAL_TABLES['india-devanagari'] },
+	'india-bengali': { ...BASE_CHARSET_TABLES.usa, ...INDIC_NUMERAL_TABLES['india-bengali'] },
+	'india-tamil': { ...BASE_CHARSET_TABLES.usa, ...INDIC_NUMERAL_TABLES['india-tamil'] },
+	'india-telugu': { ...BASE_CHARSET_TABLES.usa, ...INDIC_NUMERAL_TABLES['india-telugu'] },
+	'india-assamese': { ...BASE_CHARSET_TABLES.usa, ...INDIC_NUMERAL_TABLES['india-assamese'] },
+	'india-oriya': { ...BASE_CHARSET_TABLES.usa, ...INDIC_NUMERAL_TABLES['india-oriya'] },
+	'india-kannada': { ...BASE_CHARSET_TABLES.usa, ...INDIC_NUMERAL_TABLES['india-kannada'] },
+	'india-malayalam': { ...BASE_CHARSET_TABLES.usa, ...INDIC_NUMERAL_TABLES['india-malayalam'] },
+	'india-gujarati': { ...BASE_CHARSET_TABLES.usa, ...INDIC_NUMERAL_TABLES['india-gujarati'] },
+	'india-punjabi': { ...BASE_CHARSET_TABLES.usa, ...INDIC_NUMERAL_TABLES['india-punjabi'] },
+	'india-marathi': { ...BASE_CHARSET_TABLES.usa, ...INDIC_NUMERAL_TABLES['india-marathi'] },
+} satisfies Record<Country, CharTable>
 
-	for (const [country, table] of Object.entries(BASE_CHARSET_TABLES)) {
-		tables[country as Country] = { ...table }
+const reverseCharsetTables = new Map<Country, Map<string, number>>()
+
+const getSubstitution = (table: CharTable, byte: number) => table[byte]
+
+const getReverseCharsetTable = (country: Country) => {
+	const cached = reverseCharsetTables.get(country)
+	if (cached !== undefined) {
+		return cached
 	}
 
-	for (const [country, numerals] of Object.entries(INDIC_NUMERAL_TABLES)) {
-		tables[country as Country] = {
-			...BASE_CHARSET_TABLES.usa,
-			...numerals,
+	const reverse = new Map<string, number>()
+	for (const [byte, char] of Object.entries(CHARSET_TABLES[country])) {
+		if (char !== undefined) {
+			reverse.set(char, Number(byte))
 		}
 	}
-
-	return tables
-})()
-
-/**
- * Precomputed reverse lookup tables for encoding (Unicode char → byte).
- */
-const REVERSE_CHARSET_TABLES: Record<Country, Map<string, number>> = (() => {
-	const tables = {} as Record<Country, Map<string, number>>
-
-	for (const [country, charTable] of Object.entries(CHARSET_TABLES)) {
-		const reverseMap = new Map<string, number>()
-		for (const [byte, char] of Object.entries(charTable)) {
-			if (char !== undefined) {
-				reverseMap.set(char, Number(byte))
-			}
-		}
-		tables[country as Country] = reverseMap
-	}
-
-	return tables
-})()
+	reverseCharsetTables.set(country, reverse)
+	return reverse
+}
 
 /**
  * Decodes a single byte using the specified country's character set.
  */
-export function decodeChar(byte: number, country: Country): string {
+export function decodeChar(byte: number, country: Country) {
 	const table = CHARSET_TABLES[country]
-	const substitution = table?.[byte]
+	const substitution = getSubstitution(table, byte)
 	if (substitution !== undefined) {
 		return substitution
 	}
@@ -490,9 +482,9 @@ export function decodeChar(byte: number, country: Country): string {
  * Encodes a Unicode character to a byte using the specified country's character set.
  * Returns undefined if the character is not in the charset's substitution table.
  */
-export function encodeChar(char: string, country: Country): number | undefined {
-	const reverseTable = REVERSE_CHARSET_TABLES[country]
-	const byte = reverseTable?.get(char)
+export function encodeChar(char: string, country: Country) {
+	const reverseTable = getReverseCharsetTable(country)
+	const byte = reverseTable.get(char)
 	if (byte !== undefined) {
 		return byte
 	}
@@ -507,7 +499,7 @@ export function encodeChar(char: string, country: Country): number | undefined {
 /**
  * Decodes a byte array to a string using the specified country's character set.
  */
-export function decodeText(bytes: Uint8Array, country: Country): string {
+export function decodeText(bytes: Uint8Array, country: Country) {
 	let result = ''
 	for (const byte of bytes) {
 		result += decodeChar(byte, country)
@@ -519,7 +511,7 @@ export function decodeText(bytes: Uint8Array, country: Country): string {
  * Encodes a string to bytes using the specified country's character set.
  * Characters that cannot be encoded are replaced with '?'.
  */
-export function encodeText(text: string, country: Country): Uint8Array {
+export function encodeText(text: string, country: Country) {
 	const bytes: number[] = []
 	for (const char of text) {
 		const byte = encodeChar(char, country)

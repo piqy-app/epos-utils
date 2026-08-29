@@ -1,5 +1,6 @@
+export { CHARSET_TABLES, COUNTRY_CODES, decodeChar, decodeText, encodeChar, encodeText } from './charset.js'
 export { CODEPAGES, DEFAULT_CODEPAGE } from './codepages.js'
-export { type EncoderContext, makeEncoderContext } from './context.js'
+export { type EncoderContext, createEncoderContext } from './context.js'
 export { type EncodeOptions, encode } from './encoder.js'
 export type { EncoderExtension } from './extension.js'
 export { defaultHandlers } from './handlers/index.js'

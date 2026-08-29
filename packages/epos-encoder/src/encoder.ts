@@ -14,7 +14,7 @@ export interface EncodeOptions {
 /**
  * Encodes an EPOS AST to binary ESC/POS data.
  */
-export const encode = (ast: Root, options: EncodeOptions = {}): Uint8Array => {
+export const encode = (ast: Root, options: EncodeOptions = {}) => {
 	const { ctx, extensions } = prepareEncoder(options)
 
 	const chunks: Uint8Array[] = []

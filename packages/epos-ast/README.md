@@ -2,7 +2,7 @@
 
 ---
 
-epos-ast is a specification for representing [ESC/POS](escpos) commands in a [syntax tree](syntax-tree). It implements [unist]().
+epos-ast is a specification for representing [ESC/POS](escpos) commands in a [syntax tree](syntax-tree). It implements [unist](https://github.com/syntax-tree/unist).
 ESC/POS is a command system developed by Epson for controlling point-of-sale receipt printers. Since 1980s, numerous manufacturers have reverse-engineered and adopted the specification.
 
 This specification is written in a [Web IDL](webidl)-like grammar.

@@ -3,40 +3,50 @@
   "version": "0.1.1",
   "description": "Encode EPOS abstract syntax trees as ESC/POS printer commands",
   "keywords": [
-    "escpos",
     "encoder",
+    "escpos",
     "pos",
     "printer",
     "receipt"
   ],
-  "type": "module",
-  "sideEffects": false,
+  "homepage": "https://github.com/piqy-app/epos-utils/tree/main/packages/epos-encoder#readme",
+  "bugs": {
+    "url": "https://github.com/piqy-app/epos-utils/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/piqy-app/epos-utils.git",
+    "directory": "packages/epos-encoder"
+  },
   "files": [
     "dist",
     "LICENSE",
     "README.md"
   ],
-  "main": "./dist/index.mjs",
-  "module": "./dist/index.mjs",
+  "type": "module",
+  "sideEffects": false,
   "types": "./dist/index.d.mts",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs"
-    },
-    "./effect": {
-      "types": "./dist/effect.d.mts",
-      "import": "./dist/effect.mjs"
-    }
+    ".": "./dist/index.mjs",
+    "./effect": "./dist/effect.mjs",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
-    "build": "tsdown src/index.ts src/effect.ts --format esm --dts --clean",
-    "check": "tsc --noEmit",
-    "prepublishOnly": "pnpm build"
+    "build": "vp pack",
+    "check": "vp check",
+    "prepublishOnly": "vp pack"
   },
   "dependencies": {
     "@piqy/epos-ast": "workspace:^",
     "iconv-lite": "0.7.3"
+  },
+  "devDependencies": {
+    "effect": "catalog:"
   },
   "peerDependencies": {
     "effect": "catalog:"
@@ -46,27 +56,7 @@
       "optional": true
     }
   },
-  "devDependencies": {
-    "@types/node": "^26.1.1",
-    "effect": "catalog:",
-    "tsdown": "catalog:",
-    "typescript": "catalog:"
-  },
   "engines": {
     "node": ">=22"
-  },
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/piqy-app/epos-utils.git",
-    "directory": "packages/epos-encoder"
-  },
-  "bugs": {
-    "url": "https://github.com/piqy-app/epos-utils/issues"
-  },
-  "homepage": "https://github.com/piqy-app/epos-utils/tree/main/packages/epos-encoder#readme",
-  "license": "MIT"
+  }
 }

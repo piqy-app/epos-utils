@@ -16,7 +16,7 @@ import { concat, ESC, GS, hex } from '../commands.js'
 import type { Handler } from '../handlers.js'
 import { encodeChildren } from './shared.js'
 
-const FONT_MAP: Record<FontType, number> = {
+const FONT_MAP = {
 	A: 0,
 	B: 1,
 	C: 2,
@@ -24,7 +24,7 @@ const FONT_MAP: Record<FontType, number> = {
 	E: 4,
 	specialA: 97,
 	specialB: 98,
-}
+} satisfies Record<FontType, number>
 
 /**
  * Encodes bold/emphasized text.
