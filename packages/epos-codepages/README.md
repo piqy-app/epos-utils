@@ -1,8 +1,8 @@
 # @piqy/epos-codepages
 
-Tree-shakable ESC/POS character code tables for Effect.
+ESC/POS character code tables for Effect with tree-shaking support.
 
-The package root contains codec mechanics and the `CodepageRegistry` service. It imports no character tables. Each page is an explicit subpath, so a receipt that uses Latin pages does not include Kana, Kanji, Thai, Vietnamese, or Indic data.
+The package root contains the code needed to encode and decode text. It imports no character tables. Each page has a separate import path. An application that imports only Latin pages does not include Kana, Kanji, Thai, Vietnamese, or Indic tables.
 
 ## Explicit pages
 
@@ -25,14 +25,14 @@ Encoding fails with `CodepageNotLoadedError` when a page is absent and with `Une
 - `presets/katakana` contains only page 1.
 - `presets/hiragana` contains only page 6.
 - `presets/kanji` contains only one-pass Kanji pages 7 and 8.
-- `presets/thai` contains pages 20 through 26 and shares one generated TIS-620-compatible repertoire.
+- `presets/thai` contains pages 20 through 26. These pages share one generated set of TIS-620-compatible characters.
 - `presets/vietnamese` contains split TCVN-3 pages 30 and 31 plus Windows-1258.
 - `presets/indic` contains all documented ISCII pages, including the Assamese differences.
 - `presets/available` combines all 60 fixed pages. It intentionally includes Kanji data.
 
 Import an individual page or a focused preset when size is important. Importing the package root, a Western page, or `presets/standard` does not load Kana, Kanji, Thai, or Indic tables.
 
-The Thai pages contain line graphics, normal Thai characters, and printer-positioned Thai glyph variants. Stable graphics and normal Unicode Thai text are supported. Position-only glyph variants with no stable Unicode scalar value decode as unavailable instead of using invented private-use values.
+The Thai pages contain line graphics, normal Thai characters, and printer-specific forms used for character positioning. Stable graphics and normal Unicode Thai text are supported. Printer-specific forms without a standard Unicode value decode as unavailable. The package does not assign invented private-use values.
 
 Pages 254 and 255 have no fixed global mapping. Supply a custom `Codepage` for printer-defined characters.
 

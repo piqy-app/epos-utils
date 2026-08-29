@@ -24,5 +24,5 @@ export class UnencodableCharacterError extends Schema.TaggedError<UnencodableCha
 }) {}
 
 export type CodepageEncodeError = CodepageNotLoadedError | UnencodableCharacterError
-export type CodepagePlanningError = CodepageEncodeError | NoCodepageSupportsCharacterError
-export type CodepageError = CodepagePlanningError
+export type CodepagePlanningError = NoCodepageSupportsCharacterError
+export type CodepageError = CodepageEncodeError | CodepagePlanningError

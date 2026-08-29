@@ -44,7 +44,7 @@ export const makeCodepageRegistry = Effect.fn(function* (codepages: readonly Cod
 		return (yield* resolve(page)).decode(bytes)
 	})
 	const plan: CodepageRegistry.Service['plan'] = Effect.fn(function* (text, options = {}) {
-		const candidates = options.candidatePages === undefined ? [...byPage.values()] : yield* Effect.forEach(options.candidatePages, resolve)
+		const candidates = [...byPage.values()]
 		const byPreference = [
 			...candidates.filter((codepage) => codepage.page === options.currentPage),
 			...candidates.filter((codepage) => options.usedPages?.has(codepage.page) === true && codepage.page !== options.currentPage),
@@ -78,12 +78,7 @@ export const makeCodepageRegistry = Effect.fn(function* (codepages: readonly Cod
 			currentPage = selected.page
 			index += character.length
 		}
-		return yield* Effect.forEach(
-			segments,
-			Effect.fn(function* (segment) {
-				return { ...segment, bytes: yield* encode(segment.page, segment.text) }
-			}),
-		)
+		return segments
 	})
 
 	return CodepageRegistry.of({ pages: Object.freeze([...byPage.keys()]), resolve, encode, decode, plan })
