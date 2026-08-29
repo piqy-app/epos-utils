@@ -13,12 +13,14 @@
     "lint:fix": "vp lint --fix",
     "prepare": "effect-tsgo patch --typescript --oxlint",
     "release": "vp run -r build && changeset publish",
+    "test": "vp test",
     "version-packages": "changeset version"
   },
   "devDependencies": {
     "@arethetypeswrong/core": "0.18.5",
     "@changesets/cli": "3.0.1",
     "@effect/tsgo": "0.38.0",
+    "@effect/vitest": "4.0.0-rc.110",
     "@oxlint/plugins": "1.80.0",
     "@types/node": "^26.1.1",
     "effect": "catalog:",

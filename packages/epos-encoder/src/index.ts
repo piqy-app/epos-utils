@@ -2,6 +2,8 @@ export { CHARSET_TABLES, COUNTRY_CODES, decodeChar, decodeText, encodeChar, enco
 export { CODEPAGES, DEFAULT_CODEPAGE } from './codepages.js'
 export { type EncoderContext, createEncoderContext } from './context.js'
 export { type EncodeOptions, encode } from './encoder.js'
+export { type EncoderError, InvalidNodeError, UnsupportedNodeError } from './errors.js'
+export { encodeStream } from './effect.js'
 export type { EncoderExtension } from './extension.js'
 export { defaultHandlers } from './handlers/index.js'
 export type { Handler, HandlersRecord } from './handlers.js'

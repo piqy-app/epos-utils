@@ -1,12 +1,15 @@
 import type { Nodes } from '@piqy/epos-ast'
+import type { Effect } from 'effect'
 
 import type { EncoderContext } from './context.js'
+import type { EncoderError } from './errors.js'
 
 /**
- * Handler function that encodes an AST node to ESC/POS bytes.
+ * Effect-native handler function that encodes an AST node to ESC/POS bytes.
+ * Pure byte creation can stay inside `Effect.succeed` or `Effect.sync`.
  */
 export type Handler<N extends Nodes = Nodes> = {
-	bivarianceHack(node: N, ctx: EncoderContext): Uint8Array
+	bivarianceHack(node: N, ctx: EncoderContext): Effect.Effect<Uint8Array, EncoderError>
 }['bivarianceHack']
 
 /**

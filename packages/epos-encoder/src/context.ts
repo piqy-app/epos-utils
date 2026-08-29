@@ -1,6 +1,8 @@
 import type { AlignType, Country, Nodes } from '@piqy/epos-ast'
+import { Effect } from 'effect'
 
 import type { EncodeOptions } from './encoder.js'
+import { UnsupportedNodeError, type EncoderError } from './errors.js'
 import type { HandlersRecord } from './handlers.js'
 
 /**
@@ -28,7 +30,7 @@ export interface EncoderContext {
 	printAreaWidth: number
 	tabStops: number[]
 
-	encode(node: Nodes): Uint8Array
+	encode(node: Nodes): Effect.Effect<Uint8Array, EncoderError>
 }
 
 /**
@@ -51,11 +53,13 @@ export const createEncoderContext = (handlers: HandlersRecord, options: Required
 		tabStops: [],
 
 		encode(node) {
-			const handler = handlers[node.type]
-			if (!handler) {
-				return new Uint8Array(0)
-			}
-			return handler(node, ctx)
+			return Effect.suspend(() => {
+				const handler = handlers[node.type]
+				if (handler === undefined) {
+					return new UnsupportedNodeError({ nodeType: node.type })
+				}
+				return handler(node, ctx)
+			})
 		},
 	}
 

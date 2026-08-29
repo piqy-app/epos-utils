@@ -29,7 +29,6 @@
   "types": "./dist/index.d.mts",
   "exports": {
     ".": "./dist/index.mjs",
-    "./effect": "./dist/effect.mjs",
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -43,18 +42,8 @@
   },
   "dependencies": {
     "@piqy/epos-ast": "workspace:^",
+    "effect": "catalog:",
     "iconv-lite": "0.7.3"
-  },
-  "devDependencies": {
-    "effect": "catalog:"
-  },
-  "peerDependencies": {
-    "effect": "catalog:"
-  },
-  "peerDependenciesMeta": {
-    "effect": {
-      "optional": true
-    }
   },
   "engines": {
     "node": ">=22"

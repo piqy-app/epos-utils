@@ -1,4 +1,5 @@
 import type { AlignType, Nodes } from '@piqy/epos-ast'
+import { Effect } from 'effect'
 
 import { concat } from '../commands.js'
 import type { EncoderContext } from '../context.js'
@@ -9,4 +10,6 @@ export const ALIGN_MAP = {
 	right: 2,
 } satisfies Record<AlignType, number>
 
-export const encodeChildren = (children: readonly Nodes[], ctx: EncoderContext) => concat(...children.map((child) => ctx.encode(child)))
+export const encodeChildren = Effect.fn(function* (children: readonly Nodes[], ctx: EncoderContext) {
+	return concat(...(yield* Effect.forEach(children, (node) => ctx.encode(node))))
+})

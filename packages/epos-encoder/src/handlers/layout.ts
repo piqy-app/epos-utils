@@ -1,99 +1,112 @@
 import type { Align, CharacterSpacing, LineSpacing, Margin, Position, PrintArea, TabStops } from '@piqy/epos-ast'
+import { Effect } from 'effect'
 
 import { concat, ESC, GS, hex, NUL } from '../commands.js'
 import type { Handler } from '../handlers.js'
 import { encodeChildren } from './shared.js'
 
-const lineSpacingCmd = (spacing: number | 'default') => (spacing === 'default' ? hex(ESC, '2') : hex(ESC, '3', spacing))
+const lineSpacingCommand = (spacing: number | 'default') => (spacing === 'default' ? hex(ESC, '2') : hex(ESC, '3', spacing))
+const tabStopsCommand = (stops: readonly number[]) => hex(ESC, 'D', ...stops, NUL)
 
-/**
- * Encodes text alignment (left, center, right).
- * Sets desired alignment, encodes children, then restores previous alignment.
- * Actual emission happens in text handler when alignment differs from lineAlignment.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_la.html ESC a - Select justification
- */
-export const align: Handler<Align> = (node, ctx) => {
-	const prev = ctx.alignment
-	ctx.alignment = node.align
-	const result = encodeChildren(node.children, ctx)
-	ctx.alignment = prev
-	return result
-}
+/** Encodes text alignment and restores the prior traversal state. */
+export const align: Handler<Align> = (node, ctx) =>
+	Effect.suspend(() => {
+		const previous = ctx.alignment
+		ctx.alignment = node.align
+		return Effect.ensuring(
+			encodeChildren(node.children, ctx),
+			Effect.sync(() => {
+				ctx.alignment = previous
+			}),
+		)
+	})
 
-/**
- * Encodes line spacing configuration.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_2.html ESC 2 - Select default line spacing
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_3.html ESC 3 - Set line spacing
- */
-export const lineSpacing: Handler<LineSpacing> = (node, ctx) => {
-	const prev = ctx.lineSpacing
-	ctx.lineSpacing = node.spacing
-	const result = encodeChildren(node.children, ctx)
-	ctx.lineSpacing = prev
-	return concat(lineSpacingCmd(node.spacing), result, lineSpacingCmd(prev))
-}
+/** Encodes line spacing and restores the prior printer setting. */
+export const lineSpacing: Handler<LineSpacing> = (node, ctx) =>
+	Effect.suspend(() => {
+		const previous = ctx.lineSpacing
+		ctx.lineSpacing = node.spacing
+		return Effect.map(
+			Effect.ensuring(
+				encodeChildren(node.children, ctx),
+				Effect.sync(() => {
+					ctx.lineSpacing = previous
+				}),
+			),
+			(bytes) => concat(lineSpacingCommand(node.spacing), bytes, lineSpacingCommand(previous)),
+		)
+	})
 
-/**
- * Encodes right-side character spacing.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_space.html ESC SP - Set right-side character spacing
- */
-export const characterSpacing: Handler<CharacterSpacing> = (node, ctx) => {
-	const prev = ctx.characterSpacing
-	ctx.characterSpacing = node.spacing
-	const result = encodeChildren(node.children, ctx)
-	ctx.characterSpacing = prev
-	return concat(hex(ESC, ' ', node.spacing), result, hex(ESC, ' ', prev))
-}
+/** Encodes right-side character spacing. */
+export const characterSpacing: Handler<CharacterSpacing> = (node, ctx) =>
+	Effect.suspend(() => {
+		const previous = ctx.characterSpacing
+		ctx.characterSpacing = node.spacing
+		return Effect.map(
+			Effect.ensuring(
+				encodeChildren(node.children, ctx),
+				Effect.sync(() => {
+					ctx.characterSpacing = previous
+				}),
+			),
+			(bytes) => concat(hex(ESC, ' ', node.spacing), bytes, hex(ESC, ' ', previous)),
+		)
+	})
 
-/**
- * Encodes left margin configuration.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/gs_cl.html GS L - Set left margin
- */
-export const margin: Handler<Margin> = (node, ctx) => {
-	const prev = ctx.marginLeft
-	ctx.marginLeft = node.left
-	const result = encodeChildren(node.children, ctx)
-	ctx.marginLeft = prev
-	return concat(hex(GS, 'L', node.left & 0xff, (node.left >> 8) & 0xff), result, hex(GS, 'L', prev & 0xff, (prev >> 8) & 0xff))
-}
+/** Encodes the left margin. */
+export const margin: Handler<Margin> = (node, ctx) =>
+	Effect.suspend(() => {
+		const previous = ctx.marginLeft
+		ctx.marginLeft = node.left
+		return Effect.map(
+			Effect.ensuring(
+				encodeChildren(node.children, ctx),
+				Effect.sync(() => {
+					ctx.marginLeft = previous
+				}),
+			),
+			(bytes) =>
+				concat(hex(GS, 'L', node.left & 0xff, (node.left >> 8) & 0xff), bytes, hex(GS, 'L', previous & 0xff, (previous >> 8) & 0xff)),
+		)
+	})
 
-/**
- * Encodes print area width configuration.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/gs_cw.html GS W - Set print area width
- */
-export const printArea: Handler<PrintArea> = (node, ctx) => {
-	const prev = ctx.printAreaWidth
-	ctx.printAreaWidth = node.width
-	const result = encodeChildren(node.children, ctx)
-	ctx.printAreaWidth = prev
-	return concat(hex(GS, 'W', node.width & 0xff, (node.width >> 8) & 0xff), result, hex(GS, 'W', prev & 0xff, (prev >> 8) & 0xff))
-}
+/** Encodes print-area width. */
+export const printArea: Handler<PrintArea> = (node, ctx) =>
+	Effect.suspend(() => {
+		const previous = ctx.printAreaWidth
+		ctx.printAreaWidth = node.width
+		return Effect.map(
+			Effect.ensuring(
+				encodeChildren(node.children, ctx),
+				Effect.sync(() => {
+					ctx.printAreaWidth = previous
+				}),
+			),
+			(bytes) =>
+				concat(hex(GS, 'W', node.width & 0xff, (node.width >> 8) & 0xff), bytes, hex(GS, 'W', previous & 0xff, (previous >> 8) & 0xff)),
+		)
+	})
 
-/**
- * Encodes horizontal tab stop positions.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_cd.html ESC D - Set horizontal tab positions
- */
-export const tabStops: Handler<TabStops> = (node, ctx) => {
-	const prev = ctx.tabStops
-	ctx.tabStops = node.stops
-	const setCmd = node.stops.length > 0 ? hex(ESC, 'D', ...node.stops, NUL) : hex(ESC, 'D', NUL)
-	const result = encodeChildren(node.children, ctx)
-	ctx.tabStops = prev
-	const restoreCmd = prev.length > 0 ? hex(ESC, 'D', ...prev, NUL) : hex(ESC, 'D', NUL)
-	return concat(setCmd, result, restoreCmd)
-}
+/** Encodes horizontal tab stops. */
+export const tabStops: Handler<TabStops> = (node, ctx) =>
+	Effect.suspend(() => {
+		const previous = ctx.tabStops
+		ctx.tabStops = [...node.stops]
+		return Effect.map(
+			Effect.ensuring(
+				encodeChildren(node.children, ctx),
+				Effect.sync(() => {
+					ctx.tabStops = previous
+				}),
+			),
+			(bytes) => concat(tabStopsCommand(node.stops), bytes, tabStopsCommand(previous)),
+		)
+	})
 
-/**
- * Encodes absolute or relative horizontal print position.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_dollarssign.html ESC $ - Set absolute print position
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_backslash.html ESC \ - Set relative print position
- */
-export const position: Handler<Position> = (node) => {
-	const nL = node.horizontal & 0xff
-	const nH = (node.horizontal >> 8) & 0xff
-
-	if (node.mode === 'absolute') {
-		return hex(ESC, '$', nL, nH)
-	}
-	return hex(ESC, '\\', nL, nH)
-}
+/** Encodes an absolute or relative horizontal print position. */
+export const position: Handler<Position> = (node) =>
+	Effect.sync(() => {
+		const low = node.horizontal & 0xff
+		const high = (node.horizontal >> 8) & 0xff
+		return node.mode === 'absolute' ? hex(ESC, '$', low, high) : hex(ESC, '\\', low, high)
+	})

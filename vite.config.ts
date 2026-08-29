@@ -77,6 +77,9 @@ export default defineConfig({
 			'anti-slop-effect/prefer-effect-fn': 'error',
 		},
 	},
+	test: {
+		include: ['packages/*/tests/**/*.test.ts'],
+	},
 	fmt: {
 		ignorePatterns: ignoredToolDirectories,
 		printWidth: 140,
