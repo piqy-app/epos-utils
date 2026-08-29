@@ -1,4 +1,5 @@
 import type { AlignType, Country, Nodes } from '@piqy/epos-ast'
+import type { CodepageRegistry } from '@piqy/epos-codepages'
 import { Effect } from 'effect'
 
 import type { EncodeOptions } from './encoder.js'
@@ -13,6 +14,7 @@ export interface EncoderContext {
 	country: Country | undefined
 	readonly handlers: HandlersRecord
 	readonly options: Required<EncodeOptions>
+	readonly codepages: CodepageRegistry.Service
 
 	/** Desired alignment (set by align handler, restored after block) */
 	alignment: AlignType
@@ -36,12 +38,18 @@ export interface EncoderContext {
 /**
  * Creates an EncoderContext with the given options and handlers.
  */
-export const createEncoderContext = (handlers: HandlersRecord, options: Required<EncodeOptions>, codepage: number) => {
+export const createEncoderContext = (
+	handlers: HandlersRecord,
+	options: Required<EncodeOptions>,
+	codepage: number,
+	codepages: CodepageRegistry.Service,
+) => {
 	const ctx: EncoderContext = {
 		codepage,
 		country: 'usa',
 		handlers,
 		options,
+		codepages,
 		alignment: 'left',
 		lineAlignment: null,
 		upsideDown: false,

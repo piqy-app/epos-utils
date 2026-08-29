@@ -1,3 +1,4 @@
+import type { CodepageError } from '@piqy/epos-codepages'
 import { Schema } from 'effect'
 
 /**
@@ -15,4 +16,4 @@ export class InvalidNodeError extends Schema.TaggedError<InvalidNodeError>()('In
 	message: Schema.String,
 }) {}
 
-export type EncoderError = UnsupportedNodeError | InvalidNodeError
+export type EncoderError = UnsupportedNodeError | InvalidNodeError | CodepageError

@@ -1,4 +1,5 @@
 import type { Country } from '@piqy/epos-ast'
+import { Array as EffectArray, Order } from 'effect'
 
 /**
  * ESC/POS country code mapping (ESC R n command).
@@ -446,9 +447,30 @@ export const CHARSET_TABLES = {
 	'india-marathi': { ...BASE_CHARSET_TABLES.usa, ...INDIC_NUMERAL_TABLES['india-marathi'] },
 } satisfies Record<Country, CharTable>
 
+interface CountryEncoding {
+	readonly byte: number
+	readonly token: string
+}
+
 const reverseCharsetTables = new Map<Country, Map<string, number>>()
+const countryEncodingTables = new Map<Country, readonly CountryEncoding[]>()
 
 const getSubstitution = (table: CharTable, byte: number) => table[byte]
+
+const getCountryEncodings = (country: Country) => {
+	const cached = countryEncodingTables.get(country)
+	if (cached !== undefined) {
+		return cached
+	}
+	const table: CharTable = CHARSET_TABLES[country]
+	const encodings = EffectArray.sortWith(
+		Object.entries(table).flatMap(([byte, token]) => (token === undefined ? [] : [{ byte: Number(byte), token }])),
+		(encoding) => encoding.token.length,
+		Order.flip(Order.Number),
+	)
+	countryEncodingTables.set(country, encodings)
+	return encodings
+}
 
 const getReverseCharsetTable = (country: Country) => {
 	const cached = reverseCharsetTables.get(country)
@@ -464,6 +486,14 @@ const getReverseCharsetTable = (country: Country) => {
 	}
 	reverseCharsetTables.set(country, reverse)
 	return reverse
+}
+
+export const matchCountryEncoding = (text: string, index: number, country: Country) =>
+	getCountryEncodings(country).find((encoding) => text.startsWith(encoding.token, index))
+
+export const isCountryByte = (byte: number, country: Country) => {
+	const table: CharTable = CHARSET_TABLES[country]
+	return table[byte] !== undefined
 }
 
 /**

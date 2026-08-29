@@ -42,8 +42,8 @@
   },
   "dependencies": {
     "@piqy/epos-ast": "workspace:^",
-    "effect": "catalog:",
-    "iconv-lite": "0.7.3"
+    "@piqy/epos-codepages": "workspace:^",
+    "effect": "catalog:"
   },
   "engines": {
     "node": ">=22"

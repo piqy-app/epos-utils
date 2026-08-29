@@ -1,3 +1,4 @@
+import { CodepageRegistry } from '@piqy/epos-codepages'
 import { Effect } from 'effect'
 
 import { DEFAULT_CODEPAGE } from './codepages.js'
@@ -29,6 +30,7 @@ const buildHandlers = (baseHandlers: HandlersRecord, options: EncodeOptions, ext
 }
 
 export const prepareEncoder = Effect.fn(function* (options: EncodeOptions) {
+	const codepages = yield* CodepageRegistry
 	const extensions = options.extensions ?? []
 	const processedOptions = yield* applyExtensions(options, extensions)
 	const handlers = buildHandlers(defaultHandlers, processedOptions, extensions)
@@ -39,7 +41,7 @@ export const prepareEncoder = Effect.fn(function* (options: EncodeOptions) {
 	}
 
 	return {
-		ctx: createEncoderContext(handlers, requiredOptions, requiredOptions.codepage),
+		ctx: createEncoderContext(handlers, requiredOptions, requiredOptions.codepage, codepages),
 		extensions,
 	}
 })

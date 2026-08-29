@@ -1,4 +1,7 @@
 import type { Root } from '@piqy/epos-ast'
+import { CodepageNotLoadedError, UnencodableCharacterError, codepageLayer } from '@piqy/epos-codepages'
+import { page000 } from '@piqy/epos-codepages/pages/page-000'
+import { StandardCodepagesLayer } from '@piqy/epos-codepages/presets/standard'
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, Stream } from 'effect'
 
@@ -22,7 +25,7 @@ describe('encoder execution', () => {
 		Effect.fn(function* () {
 			const [first, second] = yield* Effect.all([encode(statefulTree), encode(statefulTree)], { concurrency: 'unbounded' })
 			expect(first).toStrictEqual(second)
-		}),
+		}, Effect.provide(StandardCodepagesLayer)),
 	)
 
 	it.effect(
@@ -35,7 +38,36 @@ describe('encoder execution', () => {
 				}),
 			)
 			expect(error).toBeInstanceOf(InvalidNodeError)
-			expect(error.nodeType).toBe('barcode')
+			if (error instanceof InvalidNodeError) {
+				expect(error.nodeType).toBe('barcode')
+			}
+		}, Effect.provide(StandardCodepagesLayer)),
+	)
+
+	it.effect(
+		'fails when the selected code page was removed from the Layer',
+		Effect.fn(function* () {
+			const program = encode({ type: 'root', children: [{ type: 'text', value: 'text' }] }).pipe(Effect.provide(codepageLayer([page000])))
+			const error = yield* Effect.flip(program)
+			expect(error).toBeInstanceOf(CodepageNotLoadedError)
+			if (error instanceof CodepageNotLoadedError) {
+				expect(error.page).toBe(19)
+			}
+		}),
+	)
+
+	it.effect(
+		'does not emit a byte that the active country table reassigns',
+		Effect.fn(function* () {
+			const program = encode({
+				type: 'root',
+				children: [{ type: 'text', value: '@', codepage: 0, country: 'france' }],
+			}).pipe(Effect.provide(codepageLayer([page000])))
+			const error = yield* Effect.flip(program)
+			expect(error).toBeInstanceOf(UnencodableCharacterError)
+			if (error instanceof UnencodableCharacterError) {
+				expect(error.character).toBe('@')
+			}
 		}),
 	)
 
@@ -46,6 +78,6 @@ describe('encoder execution', () => {
 			const first = yield* Stream.runCollect(stream)
 			const second = yield* Stream.runCollect(stream)
 			expect(first).toStrictEqual(second)
-		}),
+		}, Effect.provide(StandardCodepagesLayer)),
 	)
 })

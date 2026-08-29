@@ -1,84 +1,78 @@
 import { type Break, type Country, type Tab, type Text } from '@piqy/epos-ast'
-import { Effect } from 'effect'
-import iconv from 'iconv-lite'
+import { UnencodableCharacterError } from '@piqy/epos-codepages'
+import { Effect, Match } from 'effect'
 
-import { COUNTRY_CODES, encodeChar } from '../charset.js'
-import { CODEPAGES, DEFAULT_CODEPAGE } from '../codepages.js'
+import { COUNTRY_CODES, isCountryByte, matchCountryEncoding } from '../charset.js'
 import { concat, ESC, HT, hex, LF } from '../commands.js'
+import type { EncoderContext } from '../context.js'
 import type { Handler } from '../handlers.js'
 import { ALIGN_MAP } from './shared.js'
 
-/**
- * Encodes text using country charset substitutions where applicable.
- */
-const encodeTextWithCountry = (value: string, country: Country, codepage: number) => {
-	const encoding = CODEPAGES[codepage] ?? CODEPAGES[DEFAULT_CODEPAGE] ?? 'cp437'
-	const bytes: number[] = []
-
-	for (const char of value) {
-		const byte = encodeChar(char, country)
-		if (byte !== undefined) {
-			bytes.push(byte)
-		} else {
-			const encoded = iconv.encode(char, encoding)
-			for (const b of encoded) {
-				bytes.push(b)
-			}
+const encodeTextWithCountry = Effect.fn(function* (value: string, country: Country, codepage: number, ctx: EncoderContext) {
+	const chunks: Uint8Array[] = []
+	let index = 0
+	while (index < value.length) {
+		const countryEncoding = matchCountryEncoding(value, index, country)
+		if (countryEncoding !== undefined) {
+			chunks.push(Uint8Array.of(countryEncoding.byte))
+			index += countryEncoding.token.length
+			continue
 		}
+
+		const codePoint = value.codePointAt(index)
+		if (codePoint === undefined) {
+			break
+		}
+		const character = String.fromCodePoint(codePoint)
+		const encoded = yield* Effect.mapError(ctx.codepages.encode(codepage, character), (error) =>
+			Match.valueTags(error, {
+				CodepageNotLoadedError: (cause) => cause,
+				UnencodableCharacterError: (cause) =>
+					new UnencodableCharacterError({ page: cause.page, index: index + cause.index, character: cause.character }),
+			}),
+		)
+		if (encoded.some((byte) => isCountryByte(byte, country))) {
+			return yield* new UnencodableCharacterError({ page: codepage, index, character })
+		}
+		chunks.push(encoded)
+		index += character.length
+	}
+	return concat(...chunks)
+})
+
+/**
+ * Encodes text with explicit code-page and international-character-set state.
+ */
+export const text: Handler<Text> = Effect.fn(function* (node, ctx) {
+	const chunks: Uint8Array[] = []
+
+	if (ctx.lineAlignment !== ctx.alignment) {
+		chunks.push(hex(ESC, 'a', ALIGN_MAP[ctx.alignment]))
+		ctx.lineAlignment = ctx.alignment
 	}
 
-	return new Uint8Array(bytes)
-}
+	if (ctx.lineUpsideDown !== ctx.upsideDown) {
+		chunks.push(hex(ESC, '{', ctx.upsideDown ? 0x01 : 0x00))
+		ctx.lineUpsideDown = ctx.upsideDown
+	}
 
-/**
- * Encodes text content with optional codepage and country selection.
- * Syncs alignment with printer if needed (alignment only takes effect at line start).
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_lt.html ESC t - Select character code table
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_cr.html ESC R - Select international character set
- */
-export const text: Handler<Text> = (node, ctx) =>
-	Effect.sync(() => {
-		const chunks: Uint8Array[] = []
+	const codepage = node.codepage ?? ctx.codepage
+	if (codepage !== ctx.codepage) {
+		chunks.push(hex(ESC, 't', codepage))
+		ctx.codepage = codepage
+	}
 
-		if (ctx.lineAlignment !== ctx.alignment) {
-			chunks.push(hex(ESC, 'a', ALIGN_MAP[ctx.alignment]))
-			ctx.lineAlignment = ctx.alignment
-		}
+	if (node.country !== undefined && node.country !== ctx.country) {
+		chunks.push(hex(ESC, 'R', COUNTRY_CODES[node.country]))
+		ctx.country = node.country
+	}
 
-		if (ctx.lineUpsideDown !== ctx.upsideDown) {
-			chunks.push(hex(ESC, '{', ctx.upsideDown ? 0x01 : 0x00))
-			ctx.lineUpsideDown = ctx.upsideDown
-		}
+	const country = ctx.country ?? 'usa'
+	chunks.push(yield* encodeTextWithCountry(node.value, country, codepage, ctx))
+	return concat(...chunks)
+})
 
-		const codepage = node.codepage ?? ctx.codepage
-
-		if (codepage !== ctx.codepage) {
-			chunks.push(hex(ESC, 't', codepage))
-			ctx.codepage = codepage
-		}
-
-		if (node.country !== undefined && node.country !== ctx.country) {
-			const countryCode = COUNTRY_CODES[node.country]
-			if (countryCode !== undefined) {
-				chunks.push(hex(ESC, 'R', countryCode))
-				ctx.country = node.country
-			}
-		}
-
-		const encoding = CODEPAGES[codepage] ?? CODEPAGES[DEFAULT_CODEPAGE] ?? 'cp437'
-		if (node.country) {
-			chunks.push(encodeTextWithCountry(node.value, node.country, codepage))
-		} else {
-			chunks.push(new Uint8Array(iconv.encode(node.value, encoding)))
-		}
-
-		return concat(...chunks)
-	})
-
-/**
- * Encodes a line feed. Resets lineAlignment so next text can sync if needed.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/lf.html LF - Print and line feed
- */
+/** Resets line-scoped state after a line feed. */
 export const lineBreak: Handler<Break> = (_, ctx) =>
 	Effect.sync(() => {
 		ctx.lineAlignment = null
@@ -86,8 +80,5 @@ export const lineBreak: Handler<Break> = (_, ctx) =>
 		return hex(LF)
 	})
 
-/**
- * Encodes a horizontal tab.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/ht.html HT - Horizontal tab
- */
+/** Encodes a horizontal tab. */
 export const tab: Handler<Tab> = () => Effect.succeed(hex(HT))
