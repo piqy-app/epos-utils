@@ -35,7 +35,6 @@
     "./pages/page-004": "./dist/pages/page-004.mjs",
     "./pages/page-005": "./dist/pages/page-005.mjs",
     "./pages/page-011": "./dist/pages/page-011.mjs",
-    "./pages/page-012": "./dist/pages/page-012.mjs",
     "./pages/page-013": "./dist/pages/page-013.mjs",
     "./pages/page-014": "./dist/pages/page-014.mjs",
     "./pages/page-015": "./dist/pages/page-015.mjs",

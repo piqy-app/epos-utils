@@ -4,7 +4,6 @@ import { page003 } from '../pages/page-003.js'
 import { page004 } from '../pages/page-004.js'
 import { page005 } from '../pages/page-005.js'
 import { page011 } from '../pages/page-011.js'
-import { page012 } from '../pages/page-012.js'
 import { page013 } from '../pages/page-013.js'
 import { page014 } from '../pages/page-014.js'
 import { page015 } from '../pages/page-015.js'
@@ -42,7 +41,6 @@ export const standardCodepages = [
 	page004,
 	page005,
 	page011,
-	page012,
 	page013,
 	page014,
 	page015,

@@ -26,7 +26,7 @@ Encoding fails with `CodepageNotLoadedError` when a page is absent and with `Une
 - `presets/indic` contains ICU-verified ISCII pages. Assamese page 70 is not included because it differs from Bengali ISCII.
 - `presets/available` combines all currently verified pages.
 
-The Epson-only Kana, one-pass Kanji, Thai, Farsi, and Assamese variants remain intentionally absent until an independent, redistributable source is available. This package does not copy Epson images or third-party ESC/POS tables.
+PC853 and the Epson-only Kana, one-pass Kanji, Thai, Farsi, and Assamese variants remain intentionally absent until an independent, redistributable source is available. This package does not copy Epson images or third-party ESC/POS tables.
 
 Pages 254 and 255 have no fixed global mapping. Supply a custom `Codepage` for printer-defined characters.
 
