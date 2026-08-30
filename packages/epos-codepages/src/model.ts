@@ -8,6 +8,8 @@ export interface Codepage {
 	readonly encode: (text: string) => Effect.Effect<Uint8Array, UnencodableCharacterError>
 	readonly canEncode: (text: string) => boolean
 	readonly decode: (bytes: Uint8Array) => string
+	/** Returns the positive UTF-16 length of the next token that this page can encode. */
+	readonly tokenLengthAt?: (text: string, index: number) => number | undefined
 }
 
 export interface CodepageSegment {

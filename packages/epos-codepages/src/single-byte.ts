@@ -38,7 +38,11 @@ const encodingIndex = (definition: SingleByteCodepageDefinition, table: readonly
 			return
 		}
 		byteByToken.set(token, byte)
-		const firstCharacter = String.fromCodePoint(token.codePointAt(0) ?? 0)
+		const firstCodePoint = token.codePointAt(0)
+		if (firstCodePoint === undefined) {
+			return
+		}
+		const firstCharacter = String.fromCodePoint(firstCodePoint)
 		if (firstCharacter !== token) {
 			compoundsByFirstCharacter ??= new Map()
 			const compounds = compoundsByFirstCharacter.get(firstCharacter) ?? []
@@ -63,23 +67,27 @@ const encodingIndex = (definition: SingleByteCodepageDefinition, table: readonly
 const matchingCompound = (encoding: EncodingIndex, text: string, index: number, character: string) =>
 	encoding.compoundsByFirstCharacter?.get(character)?.find((candidate) => text.startsWith(candidate.token, index))
 
+const tokenLengthAt = (encoding: EncodingIndex, text: string, index: number) => {
+	const codePoint = text.codePointAt(index)
+	if (codePoint === undefined) {
+		return undefined
+	}
+	const character = String.fromCodePoint(codePoint)
+	const compound = matchingCompound(encoding, text, index, character)
+	if (compound !== undefined) {
+		return compound.token.length
+	}
+	return encoding.byteByToken.has(character) ? character.length : undefined
+}
+
 const canEncodeText = (encoding: EncodingIndex, text: string) => {
 	let index = 0
 	while (index < text.length) {
-		const codePoint = text.codePointAt(index)
-		if (codePoint === undefined) {
-			break
-		}
-		const character = String.fromCodePoint(codePoint)
-		const compound = matchingCompound(encoding, text, index, character)
-		if (compound !== undefined) {
-			index += compound.token.length
-			continue
-		}
-		if (!encoding.byteByToken.has(character)) {
+		const tokenLength = tokenLengthAt(encoding, text, index)
+		if (tokenLength === undefined) {
 			return false
 		}
-		index += character.length
+		index += tokenLength
 	}
 	return true
 }
@@ -135,5 +143,6 @@ export const singleByte = (definition: SingleByteCodepageDefinition) => {
 			}
 			return text
 		},
+		tokenLengthAt: (text: string, index: number) => tokenLengthAt(getEncoding(), text, index),
 	})
 }

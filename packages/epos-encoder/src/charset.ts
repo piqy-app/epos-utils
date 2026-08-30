@@ -464,7 +464,11 @@ const getCountryEncodings = (country: Country) => {
 		if (token === undefined) {
 			continue
 		}
-		const firstCharacter = String.fromCodePoint(token.codePointAt(0) ?? 0)
+		const firstCodePoint = token.codePointAt(0)
+		if (firstCodePoint === undefined) {
+			continue
+		}
+		const firstCharacter = String.fromCodePoint(firstCodePoint)
 		const candidates = encodings.get(firstCharacter) ?? []
 		candidates.push({ byte: Number(byte), token })
 		candidates.sort((left, right) => right.token.length - left.token.length)

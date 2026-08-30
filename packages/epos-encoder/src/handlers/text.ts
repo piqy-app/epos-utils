@@ -79,7 +79,13 @@ const encodePageText = Effect.fn(function* (value: string, sourceIndex: number, 
 	return yield* encodeTextCharacterByCharacter(value, sourceIndex, country, codepage)
 })
 
-const encodeTextWithCountry = Effect.fn(function* (value: string, country: Country, codepage: number, ctx: EncoderContext) {
+const encodeTextWithCountry = Effect.fn(function* (
+	value: string,
+	sourceIndex: number,
+	country: Country,
+	codepage: number,
+	ctx: EncoderContext,
+) {
 	const selectedPage = yield* ctx.codepages.resolve(codepage)
 	let writer: ReturnType<typeof makeByteWriter> | undefined
 	let index = 0
@@ -89,7 +95,7 @@ const encodeTextWithCountry = Effect.fn(function* (value: string, country: Count
 		if (countryEncoding !== undefined) {
 			writer ??= makeByteWriter(value.length)
 			if (runStart < index) {
-				writer.append(yield* encodePageText(value.slice(runStart, index), runStart, country, selectedPage))
+				writer.append(yield* encodePageText(value.slice(runStart, index), sourceIndex + runStart, country, selectedPage))
 			}
 			writer.appendByte(countryEncoding.byte)
 			index += countryEncoding.token.length
@@ -103,10 +109,10 @@ const encodeTextWithCountry = Effect.fn(function* (value: string, country: Count
 		index += String.fromCodePoint(codePoint).length
 	}
 	if (writer === undefined) {
-		return yield* encodePageText(value, 0, country, selectedPage)
+		return yield* encodePageText(value, sourceIndex, country, selectedPage)
 	}
 	if (runStart < value.length) {
-		writer.append(yield* encodePageText(value.slice(runStart), runStart, country, selectedPage))
+		writer.append(yield* encodePageText(value.slice(runStart), sourceIndex + runStart, country, selectedPage))
 	}
 	return writer.finish()
 })
@@ -137,13 +143,15 @@ export const text: Handler<Text> = Effect.fn(function* (node, ctx) {
 		node.codepage === undefined && ctx.options.automaticCodepage
 			? yield* ctx.codepages.plan(node.value, { currentPage: ctx.codepage, usedPages: ctx.usedCodepages })
 			: [{ page: node.codepage ?? ctx.codepage, text: node.value }]
+	let sourceIndex = 0
 	for (const segment of segments) {
 		if (segment.page !== ctx.codepage) {
 			chunks.push(hex(ESC, 't', segment.page))
 			ctx.codepage = segment.page
 		}
-		chunks.push(yield* encodeTextWithCountry(segment.text, country, segment.page, ctx))
+		chunks.push(yield* encodeTextWithCountry(segment.text, sourceIndex, country, segment.page, ctx))
 		ctx.usedCodepages.add(segment.page)
+		sourceIndex += segment.text.length
 	}
 	return concatAll(chunks)
 })

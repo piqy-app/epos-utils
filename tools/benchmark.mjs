@@ -12,7 +12,7 @@ const median = (values) => values.toSorted((left, right) => left - right)[Math.f
 const formatHeap = (bytes) => `${(bytes / 1024).toFixed(1)} KiB`
 let sink = 0
 
-const benchmark = (name, bytesPerIteration, iterations, operation) => {
+const benchmark = (name, unitsPerIteration, iterations, unit, operation) => {
 	for (let index = 0; index < 3; index++) {
 		sink += operation()
 	}
@@ -25,8 +25,8 @@ const benchmark = (name, bytesPerIteration, iterations, operation) => {
 		samples.push(performance.now() - start)
 	}
 	const elapsed = median(samples)
-	const throughput = (bytesPerIteration * iterations) / 1024 / 1024 / (elapsed / 1000)
-	console.log(`${name}: ${throughput.toFixed(1)} MiB/s (${elapsed.toFixed(2)} ms median)`)
+	const throughput = (unitsPerIteration * iterations) / 1024 / 1024 / (elapsed / 1000)
+	console.log(`${name}: ${throughput.toFixed(1)} ${unit}/s (${elapsed.toFixed(2)} ms median)`)
 }
 
 forceGc()
@@ -56,12 +56,24 @@ const latinBytes = Effect.runSync(page019.encode(latinText))
 const registry = Effect.runSync(makeCodepageRegistry([page000, page019]))
 
 console.log('\nCode pages')
-benchmark('canEncode Latin', latinText.length, 100, () => Number(page019.canEncode(latinText)))
-benchmark('encode Latin', latinText.length, 30, () => Effect.runSync(page019.encode(latinText)).length)
-benchmark('decode Latin', latinBytes.length, 30, () => page019.decode(latinBytes).length)
-benchmark('encode Persian aliases', persianText.length, 30, () => Effect.runSync(page041.encode(persianText)).length)
-benchmark('plan switching pages', planningText.length, 20, () => Effect.runSync(registry.plan(planningText)).length)
-benchmark('plan stable page', latinText.length, 20, () => Effect.runSync(registry.plan(latinText, { currentPage: 19 })).length)
+benchmark('canEncode Latin', latinText.length, 100, 'Mi UTF-16 code units', () => Number(page019.canEncode(latinText)))
+benchmark('encode Latin', latinText.length, 30, 'Mi UTF-16 code units', () => Effect.runSync(page019.encode(latinText)).length)
+benchmark('decode Latin', latinBytes.length, 30, 'MiB', () => page019.decode(latinBytes).length)
+benchmark(
+	'encode Persian aliases',
+	persianText.length,
+	30,
+	'Mi UTF-16 code units',
+	() => Effect.runSync(page041.encode(persianText)).length,
+)
+benchmark('plan switching pages', planningText.length, 20, 'Mi UTF-16 code units', () => Effect.runSync(registry.plan(planningText)).length)
+benchmark(
+	'plan stable page',
+	latinText.length,
+	20,
+	'Mi UTF-16 code units',
+	() => Effect.runSync(registry.plan(latinText, { currentPage: 19 })).length,
+)
 
 console.log('\nRetained heap')
 console.log(`available-page imports: ${formatHeap(heapAfterImport - heapBeforeImport)}`)
@@ -71,7 +83,7 @@ const { encode } = await import('../packages/epos-encoder/dist/index.mjs')
 const layer = codepageLayer([page000, page019])
 const benchmarkEncoder = (name, text, iterations, fields = {}) => {
 	const program = encode({ type: 'root', children: [{ type: 'text', value: text, ...fields }] }).pipe(Effect.provide(layer))
-	benchmark(name, text.length, iterations, () => Effect.runSync(program).length)
+	benchmark(name, text.length, iterations, 'Mi UTF-16 code units', () => Effect.runSync(program).length)
 }
 
 console.log('\nEncoder')

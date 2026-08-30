@@ -156,7 +156,23 @@ describe('encoder execution', () => {
 	)
 
 	it.effect(
-		'encodes long text with a country substitution without per-character output chunks',
+		'reports country-table conflicts at their index in the complete text node',
+		Effect.fn(function* () {
+			const error = yield* Effect.flip(
+				encode({ type: 'root', children: [{ type: 'text', value: 'é€@', country: 'france' }] }).pipe(
+					Effect.provide(codepageLayer([page000, page019])),
+				),
+			)
+			expect(error).toBeInstanceOf(UnencodableCharacterError)
+			if (error instanceof UnencodableCharacterError) {
+				expect(error.index).toBe(2)
+				expect(error.character).toBe('@')
+			}
+		}),
+	)
+
+	it.effect(
+		'encodes long country-substituted text',
 		Effect.fn(function* () {
 			const value = `${'a'.repeat(100_000)}é`
 			const bytes = yield* encode({

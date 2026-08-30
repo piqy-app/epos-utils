@@ -8,6 +8,7 @@ import {
 	NoCodepageSupportsCharacterError,
 	codepageLayer,
 	makeCodepageRegistry,
+	singleByte,
 } from '../src/index.js'
 import { page000 } from '../src/pages/page-000.js'
 import { page007 } from '../src/pages/page-007.js'
@@ -155,6 +156,16 @@ describe('code-page registry', () => {
 				{ page: 7, text: '日' },
 				{ page: 8, text: '訂' },
 			])
+		}),
+	)
+
+	it.effect(
+		'plans a compound alias that cannot be encoded one character at a time',
+		Effect.fn(function* () {
+			const compoundPage = singleByte({ page: 99, name: 'compound', high: '', aliases: [['☃★', 0x80]] })
+			const registry = yield* makeCodepageRegistry([compoundPage])
+			const segments = yield* registry.plan('☃★')
+			expect(segments).toStrictEqual([{ page: 99, text: '☃★' }])
 		}),
 	)
 

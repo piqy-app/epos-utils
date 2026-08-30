@@ -7,6 +7,11 @@ const forceGc = () => {
 	}
 }
 const formatBytes = (bytes) => `${(bytes / 1024 / 1024).toFixed(1)} MiB`
+const expectedOutcomes = new Map([
+	['valid-codepage', 'ok'],
+	['invalid-codepage', 'UnencodableCharacterError'],
+	['country-substitutions', 'ok'],
+])
 
 const runWorker = async (scenario) => {
 	const { Effect } = await import('effect')
@@ -68,7 +73,8 @@ const runWorker = async (scenario) => {
 		JSON.stringify({
 			scenario,
 			outcome,
-			peakRss: Math.max(0, peakAfter - peakBefore),
+			totalPeakRss: peakAfter,
+			additionalPeakRss: Math.max(0, peakAfter - peakBefore),
 			retainedRss: after.rss - before.rss,
 			retainedHeap: after.heapUsed - before.heapUsed,
 			retainedArrayBuffers: after.arrayBuffers - before.arrayBuffers,
@@ -79,8 +85,8 @@ const runWorker = async (scenario) => {
 if (process.argv[2] === '--worker') {
 	await runWorker(process.argv[3])
 } else {
-	console.log('Peak memory')
-	for (const scenario of ['valid-codepage', 'invalid-codepage', 'country-substitutions']) {
+	console.log('Memory')
+	for (const [scenario, expectedOutcome] of expectedOutcomes) {
 		const child = spawnSync(process.execPath, ['--expose-gc', fileURLToPath(import.meta.url), '--worker', scenario], {
 			encoding: 'utf8',
 		})
@@ -91,8 +97,13 @@ if (process.argv[2] === '--worker') {
 		}
 		const result = JSON.parse(child.stdout.trim())
 		console.log(
-			`${scenario}: peak rss ${formatBytes(result.peakRss)}, retained heap ${formatBytes(result.retainedHeap)}, ` +
+			`${scenario}: total peak rss ${formatBytes(result.totalPeakRss)}, additional peak rss ${formatBytes(result.additionalPeakRss)}, ` +
+				`retained rss ${formatBytes(result.retainedRss)}, retained heap ${formatBytes(result.retainedHeap)}, ` +
 				`retained array buffers ${formatBytes(result.retainedArrayBuffers)} (${result.outcome})`,
 		)
+		if (result.outcome !== expectedOutcome) {
+			console.error(`${scenario}: expected ${expectedOutcome}, received ${result.outcome}`)
+			process.exitCode = 1
+		}
 	}
 }

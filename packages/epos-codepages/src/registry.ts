@@ -21,6 +21,14 @@ export namespace CodepageRegistry {
 
 export class CodepageRegistry extends Context.Service<CodepageRegistry, CodepageRegistry.Service>()('epos-codepages/CodepageRegistry') {}
 
+const tokenLengthAt = (codepage: Codepage, text: string, index: number, character: string) => {
+	const tokenLength = codepage.tokenLengthAt?.(text, index)
+	if (tokenLength !== undefined && Number.isSafeInteger(tokenLength) && tokenLength > 0 && index + tokenLength <= text.length) {
+		return tokenLength
+	}
+	return codepage.canEncode(character) ? character.length : undefined
+}
+
 export const makeCodepageRegistry = Effect.fn(function* (codepages: readonly Codepage[]) {
 	const byPage = new Map<number, Codepage>()
 	for (const codepage of codepages) {
@@ -29,6 +37,9 @@ export const makeCodepageRegistry = Effect.fn(function* (codepages: readonly Cod
 		}
 		byPage.set(codepage.page, codepage)
 	}
+	const candidates = [...byPage.values()]
+	const pageNumbers = candidates.map((codepage) => codepage.page)
+	const pages = Object.freeze([...pageNumbers])
 
 	const resolve: CodepageRegistry.Service['resolve'] = Effect.fn(function* (page) {
 		const codepage = byPage.get(page)
@@ -44,7 +55,6 @@ export const makeCodepageRegistry = Effect.fn(function* (codepages: readonly Cod
 		return (yield* resolve(page)).decode(bytes)
 	})
 	const plan: CodepageRegistry.Service['plan'] = Effect.fn(function* (text, options = {}) {
-		const candidates = [...byPage.values()]
 		const byPreference: Codepage[] = []
 		let currentCodepage = options.currentPage === undefined ? undefined : byPage.get(options.currentPage)
 		if (currentCodepage !== undefined) {
@@ -70,21 +80,24 @@ export const makeCodepageRegistry = Effect.fn(function* (codepages: readonly Cod
 				break
 			}
 			const character = String.fromCodePoint(codePoint)
-			let selected = currentCodepage?.canEncode(character) === true ? currentCodepage : undefined
-			if (selected === undefined) {
+			let selected = currentCodepage
+			let selectedTokenLength = selected === undefined ? undefined : tokenLengthAt(selected, text, index, character)
+			if (selectedTokenLength === undefined) {
+				selected = undefined
 				for (const codepage of byPreference) {
-					if (codepage !== currentCodepage && codepage.canEncode(character)) {
+					if (codepage === currentCodepage) {
+						continue
+					}
+					const candidateTokenLength = tokenLengthAt(codepage, text, index, character)
+					if (candidateTokenLength !== undefined) {
 						selected = codepage
+						selectedTokenLength = candidateTokenLength
 						break
 					}
 				}
 			}
-			if (selected === undefined) {
-				return yield* new NoCodepageSupportsCharacterError({
-					index,
-					character,
-					pages: candidates.map((codepage) => codepage.page),
-				})
+			if (selected === undefined || selectedTokenLength === undefined) {
+				return yield* new NoCodepageSupportsCharacterError({ index, character, pages: pageNumbers })
 			}
 			if (segmentPage !== selected.page) {
 				if (segmentPage !== undefined) {
@@ -94,7 +107,7 @@ export const makeCodepageRegistry = Effect.fn(function* (codepages: readonly Cod
 				segmentStart = index
 			}
 			currentCodepage = selected
-			index += character.length
+			index += selectedTokenLength
 		}
 		if (segmentPage !== undefined) {
 			segments.push({ page: segmentPage, text: text.slice(segmentStart) })
@@ -102,7 +115,7 @@ export const makeCodepageRegistry = Effect.fn(function* (codepages: readonly Cod
 		return segments
 	})
 
-	return CodepageRegistry.of({ pages: Object.freeze([...byPage.keys()]), resolve, encode, decode, plan })
+	return CodepageRegistry.of({ pages, resolve, encode, decode, plan })
 })
 
 export const codepageLayer = (codepages: readonly Codepage[]) => Layer.effect(CodepageRegistry, makeCodepageRegistry(codepages))

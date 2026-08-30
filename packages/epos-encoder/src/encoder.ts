@@ -16,7 +16,9 @@ export interface EncodeOptions {
  */
 export const encode = Effect.fn(function* (ast: Root, options: EncodeOptions = {}) {
 	const { ctx, initialization } = yield* prepareEncoder(options)
-	const encodedChildren = yield* Effect.forEach(ast.children, (node) => ctx.encode(node))
-	encodedChildren.unshift(initialization)
-	return concatAll(encodedChildren)
+	const chunks: Uint8Array[] = [initialization]
+	for (const node of ast.children) {
+		chunks.push(yield* ctx.encode(node))
+	}
+	return concatAll(chunks)
 })
