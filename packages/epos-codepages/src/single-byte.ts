@@ -115,7 +115,7 @@ const encodeResult = (definition: SingleByteCodepageDefinition, encoding: Encodi
 }
 
 /**
- * Creates a lazy single-byte codec. Reverse indexes are built on first use.
+ * Creates a single-byte character table. Encoding lookup data is created on first use.
  */
 export const singleByte = (definition: SingleByteCodepageDefinition) => {
 	let table: readonly string[] | undefined

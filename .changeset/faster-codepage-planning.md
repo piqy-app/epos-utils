@@ -3,4 +3,10 @@
 '@piqy/epos-encoder': patch
 ---
 
-Use lazy, compact code-page indexes, preallocate encoded output, and slice planned segments instead of growing them one character at a time. Plan compound aliases as complete tokens, preserve error indexes across planned segments, batch country-table text runs, and concatenate large outputs without argument spreading. Always check that an explicit page is loaded before applying country substitutions.
+Make long text and large receipts faster while using less memory.
+
+This also fixes three encoding problems:
+
+- Multi-character mappings, such as Persian ligatures, are handled as one unit.
+- Character error positions now point to the correct place in the original text.
+- A selected page must be provided even when an international character replacement could encode the text.

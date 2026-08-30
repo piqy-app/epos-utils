@@ -239,8 +239,8 @@ describe('encoder execution', () => {
 			const stream = encodeStream(Stream.fromIterable(statefulTree.children))
 			const first = yield* Stream.runCollect(stream)
 			const second = yield* Stream.runCollect(stream)
-			expect([...first]).toStrictEqual(expectedStatefulChunks)
-			expect([...second]).toStrictEqual(expectedStatefulChunks)
+			expect(first).toStrictEqual(expectedStatefulChunks)
+			expect(second).toStrictEqual(expectedStatefulChunks)
 		}, Effect.provide(StandardCodepagesLayer)),
 	)
 })

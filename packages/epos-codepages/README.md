@@ -1,39 +1,49 @@
 # @piqy/epos-codepages
 
-ESC/POS character code tables for Effect with tree-shaking support.
+ESC/POS character tables for encoding and decoding printer text.
 
-The package root contains the code needed to encode and decode text. It imports no character tables. Each page has a separate import path. An application that imports only Latin pages does not include Kana, Kanji, Thai, Vietnamese, or Indic tables.
+Each table has its own import path. An application includes only the tables that it imports.
 
-## Explicit pages
+## Encode text with one page
 
 ```ts
-import { Effect } from 'effect'
 import { CodepageRegistry, codepageLayer } from '@piqy/epos-codepages'
 import { page019 } from '@piqy/epos-codepages/pages/page-019'
+import { Effect } from 'effect'
 
 const program = Effect.gen(function* () {
-	const registry = yield* CodepageRegistry
-	return yield* registry.encode(19, 'Price: 10 €')
+	const codepages = yield* CodepageRegistry
+	return yield* codepages.encode(19, 'Price: 10 €')
 }).pipe(Effect.provide(codepageLayer([page019])))
+
+const bytes = await Effect.runPromise(program)
 ```
 
-Encoding fails with `CodepageNotLoadedError` when a page is absent and with `UnencodableCharacterError` when the selected page cannot represent the text. It never silently selects another page or inserts a replacement character.
+Encoding fails with `CodepageNotLoadedError` when page 19 was not provided. It fails with `UnencodableCharacterError` when page 19 cannot encode the text. Unsupported characters are never replaced without an error.
 
-## Presets
+## Choose a prepared group
 
-- `presets/standard` contains the named DOS, ISO, Windows, Farsi, and related standard mappings.
-- `presets/katakana` contains only page 1.
-- `presets/hiragana` contains only page 6.
-- `presets/kanji` contains only one-pass Kanji pages 7 and 8.
-- `presets/thai` contains pages 20 through 26. These pages share one generated set of TIS-620-compatible characters.
-- `presets/vietnamese` contains split TCVN-3 pages 30 and 31 plus Windows-1258.
-- `presets/indic` contains all documented ISCII pages, including the Assamese differences.
-- `presets/available` combines all 60 fixed pages. It intentionally includes Kanji data.
+Use a preset when the application needs more than one table:
 
-Import an individual page or a focused preset when size is important. Importing the package root, a Western page, or `presets/standard` does not load Kana, Kanji, Thai, or Indic tables.
+- `presets/standard` provides common DOS, ISO, Windows, and Persian tables.
+- `presets/katakana` provides page 1.
+- `presets/hiragana` provides page 6.
+- `presets/kanji` provides pages 7 and 8.
+- `presets/thai` provides pages 20 through 26.
+- `presets/vietnamese` provides pages 30, 31, and 52.
+- `presets/indic` provides the documented ISCII pages.
+- `presets/available` provides all fixed tables, including Kanji.
 
-The Thai pages contain line graphics, normal Thai characters, and printer-specific forms used for character positioning. Stable graphics and normal Unicode Thai text are supported. Printer-specific forms without a standard Unicode value decode as unavailable. The package does not assign invented private-use values.
+```ts
+import { StandardCodepagesLayer } from '@piqy/epos-codepages/presets/standard'
+```
 
-Pages 254 and 255 have no fixed global mapping. Supply a custom `Codepage` for printer-defined characters.
+Import one page or the smallest suitable preset when application size matters.
 
-See `THIRD_PARTY_NOTICES.md` for mapping-data licenses. Epson-specific tables were implemented from the published character tables. Epson image assets are not distributed.
+## Printer-defined pages
+
+Pages 254 and 255 do not have a fixed character mapping. Create a custom `Codepage` when a printer defines either page.
+
+Thai printer-only forms without a standard Unicode character are left unavailable. The package does not create private Unicode values for them.
+
+See `THIRD_PARTY_NOTICES.md` for the sources and licenses of the character mappings.

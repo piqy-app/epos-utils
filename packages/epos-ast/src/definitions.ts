@@ -285,12 +285,12 @@ export interface Root extends Parent {
 export interface Text extends Literal {
 	type: 'text'
 	/**
-	 * The explicit ESC/POS codepage number for encoding during serialization.
-	 * When absent, the encoder starts at page 0 and selects from loaded pages automatically.
+	 * The exact ESC/POS character page to use during encoding.
+	 * When absent, the encoder starts at page 0 and selects from the provided pages automatically.
 	 */
 	codepage?: number | undefined
 	/**
-	 * Country-specific character variations for serialization.
+	 * Country-specific character replacements used during encoding.
 	 */
 	country?: Country | undefined
 }
@@ -521,8 +521,8 @@ export interface Pulse extends Node {
 /**
  * Represents a printed image.
  *
- * The parser normalizes all image formats (GS v 0, ESC *, GS ( L) into this representation.
- * The stringifier always outputs using GS ( L Function 112 + Function 50.
+ * Image data uses a normalized raster format.
+ * The encoder outputs it with GS ( L Function 112 and Function 50.
  */
 export interface Image extends Node {
 	type: 'image'

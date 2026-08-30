@@ -1,7 +1,7 @@
 {
   "name": "@piqy/epos-codepages",
   "version": "0.1.0",
-  "description": "Tree-shakable ESC/POS character code tables for Effect",
+  "description": "ESC/POS character tables for encoding and decoding printer text",
   "keywords": [
     "codepage",
     "effect",

@@ -1,6 +1,16 @@
 ---
 '@piqy/epos-ast': minor
-'@piqy/epos-encoder': minor
 ---
 
-Keep `epos-ast` focused on the unist node model, move ESC/POS byte and character-set utilities to the encoder, and build both packages with Vite+.
+`@piqy/epos-ast` now contains only the receipt tree types. Use it to define receipt data:
+
+```ts
+import type { Root } from '@piqy/epos-ast'
+
+const receipt: Root = {
+	type: 'root',
+	children: [{ type: 'text', value: 'Hello' }],
+}
+```
+
+The old `CODEPAGES`, `Commands`, `hex`, `str`, `concat`, and `len16` exports were removed from this package. Printer-byte helpers are now private to the encoder. Character tables are available from `@piqy/epos-codepages`.

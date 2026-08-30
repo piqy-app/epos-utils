@@ -1,32 +1,22 @@
-# ESC/POS Abstract Syntax Tree
+# @piqy/epos-ast
 
----
+TypeScript types for ESC/POS receipt trees. The tree follows the [unist](https://github.com/syntax-tree/unist) node format.
 
-epos-ast is a specification for representing [ESC/POS](escpos) commands in a [syntax tree](syntax-tree). It implements [unist](https://github.com/syntax-tree/unist).
-ESC/POS is a command system developed by Epson for controlling point-of-sale receipt printers. Since 1980s, numerous manufacturers have reverse-engineered and adopted the specification.
+Use these types to create, inspect, and change receipt data. The main package import contains types only and does not load Effect.
 
-This specification is written in a [Web IDL](webidl)-like grammar.
+## Validate receipt data
 
-This package provides a pure TypeScript implementation of the specification. The main entry exports types only and has no Effect runtime dependency.
-
-Effect Schema codecs are available from the optional `@piqy/epos-ast/schema` entry:
+Use the optional `/schema` import to validate unknown data at runtime:
 
 ```ts
-import { Schema } from 'effect'
 import { Root } from '@piqy/epos-ast/schema'
+import { Effect, Schema } from 'effect'
 
-const decodeRoot = Schema.decodeUnknownEffect(Root)
+const decodeReceipt = Schema.decodeUnknownEffect(Root)
+const receipt = await Effect.runPromise(decodeReceipt({ type: 'root', children: [] }))
 ```
 
-These schemas use the AST `type` field as their discriminant. They do not add an `_tag` field.
-
-epos-ast can be used to:
-
-- Parse binary ESC/POS data into a structured, inspectable format
-- Transform receipt data (modify, filter, translate)
-- Convert to other formats (HTML, Markdown, PDF)
-- Generate ESC/POS binary data from structured input
-- Analyze receipt content programmatically
+Validation keeps the existing AST shape. It does not add or rename fields.
 
 ## Contents
 
@@ -93,10 +83,7 @@ epos-ast can be used to:
   - [PhrasingContent](#phrasingcontent)
   - [FlowBlockContent](#flowblockcontent)
   - [FlowContent](#flowcontent)
-- [Serialization](#serialization)
-  - [Parsing](#parsing)
-  - [Stringifying](#stringifying)
-  - [Round-trip guarantees](#round-trip-guarantees)
+- [Encoding](#encoding)
 - [Codepage reference](#codepage-reference)
 - [Unsupported](#unsupported)
 - [Unit system](#unit-system)
@@ -181,11 +168,11 @@ interface Text <: Literal {
 
 Text can be used where [**phrasing**](#phrasingcontent) content is expected. Its content is represented by its `value` field.
 
-A `codepage` field can be present. It specifies the ESC/POS codepage number for encoding during serialization. When it is not present, the encoder automatically selects from the loaded pages and starts with page `0` (PC437). See [Codepage reference](#codepage-reference) for supported values.
+A `codepage` field can select an exact ESC/POS character page. Without it, the encoder starts on page `0` (PC437) and selects from the provided pages automatically. See [Codepage reference](#codepage-reference) for available values.
 
-A `country` field can be present. It specifies country-specific character variations for serialization.
+A `country` field can select country-specific character replacements.
 
-The stringifier emits [ESC t](https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_lt.html) and [ESC R](https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_cr.html) commands when the codepage or country changes between text nodes.
+The encoder emits [ESC t](https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_lt.html) or [ESC R](https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_cr.html) only when the page or country changes.
 
 For example:
 
@@ -378,7 +365,7 @@ A `font` field must be present. Font A is typically 12x24 dots, Font B is 9x17 d
 
 Settings are effective until ESC !, ESC @, reset, or power off.
 
-Yields: `1B 4D n` + children where n = 0 (A), 1 (B), 2 (C), 3 (D), 4 (E), 97 (specialA), 98 (specialB). Stringifier restores previous font after children.
+Yields: `1B 4D n` + children where n = 0 (A), 1 (B), 2 (C), 3 (D), 4 (E), 97 (specialA), 98 (specialB). The encoder selects font A after the children.
 
 ### Align
 
@@ -396,7 +383,7 @@ Align can be used where [**flow**](#flowcontent) content is expected. Its conten
 
 An `align` field must be present. It represents horizontal text alignment.
 
-Yields: `1B 61 n` + children where n = 0 (left), 1 (center), 2 (right). Stringifier restores previous alignment after children.
+Yields: `1B 61 n` + children where n = 0 (left), 1 (center), 2 (right). The encoder restores the previous alignment after the children.
 
 ### LineSpacing
 
@@ -414,7 +401,7 @@ LineSpacing can be used where [**flow**](#flowcontent) content is expected. Its 
 
 A `spacing` field must be present. When a number, it represents spacing in [canonical units](#unit-system). When `'default'`, it resets to the printer's default line spacing.
 
-Yields: `1B 33 n` + children where n = spacing, or `1B 32` for default. Stringifier restores previous spacing after children.
+Yields: `1B 33 n` + children where n = spacing, or `1B 32` for default. The encoder restores the previous spacing after the children.
 
 ### CharacterSpacing
 
@@ -432,7 +419,7 @@ CharacterSpacing can be used where [**flow**](#flowcontent) content is expected.
 
 A `spacing` field must be present. It represents additional spacing added to the right side of each character, in [canonical units](#unit-system).
 
-Yields: `1B 20 n` + children where n = spacing. Stringifier restores previous spacing after children.
+Yields: `1B 20 n` + children where n = spacing. The encoder restores the previous spacing after the children.
 
 ### Position
 
@@ -545,7 +532,7 @@ A `height` field must be present. It represents image height in pixels.
 
 A `data` field must be present. It contains base64-encoded bitmap data in normalized raster format: row-major, 1 bit per pixel, MSB is leftmost pixel. Each row is padded to byte boundary.
 
-The parser normalizes all image formats (GS v 0, ESC \*, GS ( L) into this representation. The stringifier always outputs using GS ( L Function 112 + Function 50.
+Image data uses one normalized raster format. The encoder outputs it with GS ( L Function 112 and Function 50.
 
 Note: ESC/POS supports grayscale (multiple tone) and multi-color (up to 4 colors for 2-color thermal paper) images via the `a` and `c` parameters of Function 112. This AST currently only supports monochrome images, which covers the vast majority of receipt printing use cases. Grayscale/color support may be added in a future version if needed.
 
@@ -807,7 +794,7 @@ TabStops can be used where [**flow**](#flowcontent) content is expected. Its con
 
 A `stops` field must be present. It is a list of column positions where tabs stop. Maximum 32 positions.
 
-Yields: `1B 44 n1 n2 ... nk 00` + children where n1...nk = stop positions. Stringifier restores previous tab stops after children.
+Yields: `1B 44 n1 n2 ... nk 00` + children where n1...nk = stop positions. The encoder restores the previous tab stops after the children.
 
 ### Color
 
@@ -827,7 +814,7 @@ A `color` field must be present.
 
 Note: Two-color printing requires compatible printer and paper.
 
-Yields: `1B 72 n` + children where n = 0 (black), 1 (red). Stringifier restores previous color after children.
+Yields: `1B 72 n` + children where n = 0 (black), 1 (red). The encoder selects black after the children.
 
 ### Margin
 
@@ -845,7 +832,7 @@ Margin can be used where [**flow**](#flowcontent) content is expected. Its conte
 
 A `left` field must be present. It represents the left margin in [canonical units](#unit-system).
 
-Yields: `1D 4C nL nH` + children where nL/nH = left margin as low/high byte. Stringifier restores previous margin after children.
+Yields: `1D 4C nL nH` + children where nL/nH = left margin as low/high byte. The encoder restores the previous margin after the children.
 
 ### PrintArea
 
@@ -863,7 +850,7 @@ PrintArea can be used where [**flow**](#flowcontent) content is expected. Its co
 
 A `width` field must be present. It represents the print area width in [canonical units](#unit-system).
 
-Yields: `1D 57 nL nH` + children where nL/nH = width as low/high byte. Stringifier restores previous width after children.
+Yields: `1D 57 nL nH` + children where nL/nH = width as low/high byte. The encoder restores the previous width after the children.
 
 ### Raw
 
@@ -883,7 +870,7 @@ A `value` field must be present. It contains base64-encoded raw bytes.
 
 A `description` field can be present. It provides a human-readable description of the unknown command.
 
-This node ensures lossless parsing of ESC/POS data even when commands are not recognized.
+This node stores command bytes that are not represented by another node type.
 
 Yields: decoded bytes from `value` field (unchanged)
 
@@ -1238,62 +1225,11 @@ type FlowBlockContent =
 
 **Flow** content represents all content in an epos-ast tree. It is the union of [**flow block**](#flowblockcontent) and [**phrasing**](#phrasingcontent) content.
 
-## Serialization
+## Encoding
 
-### Parsing
+This package defines the receipt tree. It does not read or write printer bytes.
 
-Parsing converts ESC/POS binary data to an epos-ast tree.
-
-The parser maintains state for:
-
-- Current codepage
-- Current international character set
-- Active formatting (bold, underline, etc.)
-- Alignment
-- Font
-
-When a formatting command is encountered (e.g., ESC E 1 for bold ON), the parser opens a new parent node. When the corresponding OFF command is encountered (ESC E 0), the parser closes that node.
-
-Codepage ([ESC t](https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_lt.html)) and international character set ([ESC R](https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_cr.html)) commands update parser state. The parser decodes text bytes to Unicode using the current codepage/country, and stores these values on each [**Text**](#text) node. This makes text nodes self-contained and easy to manipulate.
-
-The printer reset command ([ESC @](https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_atsign.html)) is handled internally by the parser. When encountered, it resets all parser state (codepage, formatting, alignment, etc.) to defaults without emitting a node. This is equivalent to starting a new print job.
-
-```
-Input bytes: 1B 45 01 48 65 6C 6C 6F 1B 45 00
-             │         │           │
-             │         │           └─ ESC E 0 (bold off)
-             │         └─ "Hello"
-             └─ ESC E 1 (bold on)
-
-Output AST:
-{
-  type: 'root',
-  children: [
-    {
-      type: 'strong',
-      children: [
-        { type: 'text', value: 'Hello' }
-      ]
-    }
-  ]
-}
-```
-
-### Stringifying
-
-Stringifying converts an epos-ast tree back to ESC/POS binary data.
-
-Each node type has a corresponding byte sequence documented in its "Yields" section. The stringifier maintains state to properly restore settings after nested nodes close.
-
-For [**Text**](#text) nodes, the encoder tracks the current codepage and country. It emits ESC t or ESC R only when a setting changes. A text node can select a page directly. Otherwise, the encoder starts with page 0 and selects from the loaded pages automatically.
-
-### Round-trip guarantees
-
-**Semantic equivalence**: `stringify(parse(bytes))` produces bytes that, when printed, produce visually identical output.
-
-**Not guaranteed**: Byte-identical round-trip. Different command sequences can produce the same visual result. The parser normalizes to canonical forms.
-
-**Guaranteed**: No information loss for recognized commands. Unknown commands preserved via Raw nodes produce identical bytes.
+Use [`@piqy/epos-encoder`](../epos-encoder) to convert a `Root` tree to ESC/POS bytes. The encoder tracks printer settings while it visits the tree. Text can select an exact character page, or the encoder can select from the pages provided by the application.
 
 ## Codepage reference
 
@@ -1364,7 +1300,7 @@ For [**Text**](#text) nodes, the encoder tracks the current codepage and country
 
 ## Unsupported
 
-The following commands are unsupported due to unlikelihood of use or being status/control commands handled by the parser directly, not the document AST.
+The following status and control commands are outside the receipt tree model.
 
 | Command                                                                                           | Description                                        |
 | ------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
