@@ -1,6 +1,6 @@
 import { type Break, type Country, type Tab, type Text } from '@piqy/epos-ast'
-import { UnencodableCharacterError } from '@piqy/epos-codepages'
-import { Effect, Match } from 'effect'
+import { type Codepage, UnencodableCharacterError } from '@piqy/epos-codepages'
+import { Effect } from 'effect'
 
 import { COUNTRY_CODES, isCountryByte, matchCountryEncoding } from '../charset.js'
 import { concat, ESC, HT, hex, LF } from '../commands.js'
@@ -8,7 +8,22 @@ import type { EncoderContext } from '../context.js'
 import type { Handler } from '../handlers.js'
 import { ALIGN_MAP } from './shared.js'
 
-const encodeTextWithCountry = Effect.fn(function* (value: string, country: Country, codepage: number, ctx: EncoderContext) {
+const hasCountryEncoding = (value: string, country: Country) => {
+	let index = 0
+	while (index < value.length) {
+		if (matchCountryEncoding(value, index, country) !== undefined) {
+			return true
+		}
+		const codePoint = value.codePointAt(index)
+		if (codePoint === undefined) {
+			break
+		}
+		index += String.fromCodePoint(codePoint).length
+	}
+	return false
+}
+
+const encodeTextCharacterByCharacter = Effect.fn(function* (value: string, country: Country, codepage: Codepage) {
 	const chunks: Uint8Array[] = []
 	let index = 0
 	while (index < value.length) {
@@ -24,20 +39,28 @@ const encodeTextWithCountry = Effect.fn(function* (value: string, country: Count
 			break
 		}
 		const character = String.fromCodePoint(codePoint)
-		const encoded = yield* Effect.mapError(ctx.codepages.encode(codepage, character), (error) =>
-			Match.valueTags(error, {
-				CodepageNotLoadedError: (cause) => cause,
-				UnencodableCharacterError: (cause) =>
-					new UnencodableCharacterError({ page: cause.page, index: index + cause.index, character: cause.character }),
-			}),
+		const encoded = yield* Effect.mapError(
+			codepage.encode(character),
+			(cause) => new UnencodableCharacterError({ page: cause.page, index: index + cause.index, character: cause.character }),
 		)
 		if (encoded.some((byte) => isCountryByte(byte, country))) {
-			return yield* new UnencodableCharacterError({ page: codepage, index, character })
+			return yield* new UnencodableCharacterError({ page: codepage.page, index, character })
 		}
 		chunks.push(encoded)
 		index += character.length
 	}
 	return concat(...chunks)
+})
+
+const encodeTextWithCountry = Effect.fn(function* (value: string, country: Country, codepage: number, ctx: EncoderContext) {
+	const selectedPage = yield* ctx.codepages.resolve(codepage)
+	if (!hasCountryEncoding(value, country)) {
+		const encoded = yield* selectedPage.encode(value)
+		if (!encoded.some((byte) => isCountryByte(byte, country))) {
+			return encoded
+		}
+	}
+	return yield* encodeTextCharacterByCharacter(value, country, selectedPage)
 })
 
 /**

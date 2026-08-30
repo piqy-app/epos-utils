@@ -60,6 +60,19 @@ describe('encoder execution', () => {
 	)
 
 	it.effect(
+		'checks an explicit page even when the country table can encode all text',
+		Effect.fn(function* () {
+			const error = yield* Effect.flip(
+				encode({ type: 'root', children: [{ type: 'text', value: '@', codepage: 19 }] }).pipe(Effect.provide(codepageLayer([page000]))),
+			)
+			expect(error).toBeInstanceOf(CodepageNotLoadedError)
+			if (error instanceof CodepageNotLoadedError) {
+				expect(error.page).toBe(19)
+			}
+		}),
+	)
+
+	it.effect(
 		'does not emit a byte that the active country table reassigns',
 		Effect.fn(function* () {
 			const program = encode({

@@ -55,6 +55,23 @@ const encodingCandidates = (definition: SingleByteCodepageDefinition, table: rea
 	return byFirstCharacter
 }
 
+const canEncodeText = (candidates: ReadonlyMap<string, readonly EncodingCandidate[]>, text: string) => {
+	let index = 0
+	while (index < text.length) {
+		const codePoint = text.codePointAt(index)
+		if (codePoint === undefined) {
+			break
+		}
+		const character = String.fromCodePoint(codePoint)
+		const match = candidates.get(character)?.find((candidate) => text.startsWith(candidate.token, index))
+		if (match === undefined) {
+			return false
+		}
+		index += match.token.length
+	}
+	return true
+}
+
 const encodeResult = (
 	definition: SingleByteCodepageDefinition,
 	candidates: ReadonlyMap<string, readonly EncodingCandidate[]>,
@@ -95,7 +112,7 @@ export const singleByte = (definition: SingleByteCodepageDefinition) => {
 		page: definition.page,
 		name: definition.name,
 		encode,
-		canEncode: (text: string) => Result.isSuccess(encodeResult(definition, getCandidates(), text)),
+		canEncode: (text: string) => canEncodeText(getCandidates(), text),
 		decode: (bytes: Uint8Array) => {
 			let text = ''
 			for (const byte of bytes) {
