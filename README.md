@@ -1,22 +1,22 @@
 # epos-utils
 
-TypeScript libraries for working with ESC/POS printers.
+TypeScript packages for building and encoding ESC/POS receipt data.
 
 ## Packages
 
-- [`@piqy/epos-ast`](packages/epos-ast): types and utilities for representing
-  ESC/POS commands as a unist syntax tree.
-- [`@piqy/epos-encoder`](packages/epos-encoder): encode EPOS syntax trees as
-  ESC/POS printer commands.
+- [`@piqy/epos-ast`](packages/epos-ast) defines the receipt tree types and optional runtime validation.
+- [`@piqy/epos-codepages`](packages/epos-codepages) provides ESC/POS character tables. Applications include only the tables that they import.
+- [`@piqy/epos-encoder`](packages/epos-encoder) converts a receipt tree to ESC/POS printer bytes with Effect.
 
 ## Development
 
-This repository requires Node.js 22 or newer and pnpm. Corepack can install the
-pinned pnpm version:
+This repository requires Node.js 22 or newer and pnpm.
 
 ```sh
 corepack enable
 pnpm install
-pnpm check
 pnpm build
+pnpm check
+pnpm test
+pnpm check:tree-shaking
 ```

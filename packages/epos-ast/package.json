@@ -1,7 +1,7 @@
 {
   "name": "@piqy/epos-ast",
   "version": "0.1.0",
-  "description": "TypeScript types and utilities for representing ESC/POS commands as a unist syntax tree",
+  "description": "TypeScript types for representing ESC/POS commands as a unist syntax tree",
   "keywords": [
     "escpos",
     "pos",
@@ -9,49 +9,53 @@
     "receipt",
     "unist"
   ],
-  "type": "module",
-  "sideEffects": false,
-  "files": [
-    "dist",
-    "LICENSE",
-    "README.md"
-  ],
-  "main": "./dist/index.mjs",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.mts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs"
-    }
+  "homepage": "https://github.com/piqy-app/epos-utils/tree/main/packages/epos-ast#readme",
+  "bugs": {
+    "url": "https://github.com/piqy-app/epos-utils/issues"
   },
-  "scripts": {
-    "build": "tsdown src/index.ts --format esm --dts --clean",
-    "check": "tsc --noEmit",
-    "prepublishOnly": "pnpm build"
-  },
-  "dependencies": {
-    "@types/unist": "^3.0.3"
-  },
-  "devDependencies": {
-    "tsdown": "catalog:",
-    "typescript": "catalog:"
-  },
-  "engines": {
-    "node": ">=22"
-  },
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
-  },
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/piqy-app/epos-utils.git",
     "directory": "packages/epos-ast"
   },
-  "bugs": {
-    "url": "https://github.com/piqy-app/epos-utils/issues"
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./schema": "./dist/schema.mjs",
+    "./package.json": "./package.json"
   },
-  "homepage": "https://github.com/piqy-app/epos-utils/tree/main/packages/epos-ast#readme",
-  "license": "MIT"
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "vp pack",
+    "check": "vp check",
+    "prepublishOnly": "vp pack"
+  },
+  "dependencies": {
+    "@types/unist": "^3.0.3"
+  },
+  "devDependencies": {
+    "effect": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "effect": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  }
 }

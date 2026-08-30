@@ -16,12 +16,13 @@ import type {
 	PDF417,
 	QRCode,
 } from '@piqy/epos-ast'
-import iconv from 'iconv-lite'
+import { Effect } from 'effect'
 
-import { concat, GS, hex, len16 } from '../commands.js'
+import { concat, GS, hex, len16, utf8 } from '../commands.js'
+import { InvalidNodeError } from '../errors.js'
 import type { Handler } from '../handlers.js'
 
-const BARCODE_FORMAT_MAP: Record<BarcodeFormat, number> = {
+const BARCODE_FORMAT_MAP = {
 	'UPC-A': 65,
 	'UPC-E': 66,
 	EAN13: 67,
@@ -31,32 +32,47 @@ const BARCODE_FORMAT_MAP: Record<BarcodeFormat, number> = {
 	CODABAR: 71,
 	CODE93: 72,
 	CODE128: 73,
-}
+} satisfies Record<BarcodeFormat, number>
 
-const HRI_POSITION_MAP: Record<HriPosition, number> = {
+const HRI_POSITION_MAP = {
 	none: 0,
 	above: 1,
 	below: 2,
 	both: 3,
-}
+} satisfies Record<HriPosition, number>
 
-const HRI_FONT_MAP: Record<HriFont, number> = {
+const HRI_FONT_MAP = {
 	A: 0,
 	B: 1,
-}
+} satisfies Record<HriFont, number>
 
 // fn472 uses different values: 0=not added, 1=Font A, 2=Font B
-const COMPOSITE_HRI_FONT_MAP: Record<HriFont, number> = {
+const COMPOSITE_HRI_FONT_MAP = {
 	A: 1,
 	B: 2,
-}
+} satisfies Record<HriFont, number>
 
-const EC_MAP: Record<ErrorCorrection, number> = {
+const EC_MAP = {
 	L: 48,
 	M: 49,
 	Q: 50,
 	H: 51,
-}
+} satisfies Record<ErrorCorrection, number>
+
+const encodeAscii = Effect.fn(function* (text: string) {
+	const bytes = new Uint8Array(text.length)
+	for (let index = 0; index < text.length; index++) {
+		const code = text.charCodeAt(index)
+		if (code > 0x7f) {
+			return yield* new InvalidNodeError({
+				nodeType: 'barcode',
+				message: `Barcode data contains a non-ASCII character at index ${index}`,
+			})
+		}
+		bytes[index] = code
+	}
+	return bytes
+})
 
 /**
  * Encodes a 1D barcode.
@@ -66,7 +82,7 @@ const EC_MAP: Record<ErrorCorrection, number> = {
  * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/gs_ch.html GS H - Select print position of HRI characters
  * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/gs_lf.html GS f - Select font for HRI characters
  */
-export const barcode: Handler<Barcode> = (node) => {
+export const barcode: Handler<Barcode> = Effect.fn(function* (node) {
 	const chunks: Uint8Array[] = []
 
 	if (node.width !== undefined) {
@@ -89,186 +105,191 @@ export const barcode: Handler<Barcode> = (node) => {
 
 	// CODE128 requires code set selection prefix
 	const codeSetPrefix = node.format === 'CODE128' ? `{${node.codeSet ?? 'B'}` : ''
-	const data = iconv.encode(codeSetPrefix + node.data, 'ascii')
+	const data = yield* encodeAscii(codeSetPrefix + node.data)
 	chunks.push(hex(GS, 'k', m, data.length))
 	chunks.push(data)
 
 	return concat(...chunks)
-}
+})
 
 /**
  * Encodes a QR code.
  * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/gs_lparen_lk.html GS ( k - Set up and print 2D code
  */
-export const qrCode: Handler<QRCode> = (node) => {
-	const chunks: Uint8Array[] = []
-	const data = iconv.encode(node.data, 'utf8')
-	const storeLen = data.length + 3
+export const qrCode: Handler<QRCode> = (node) =>
+	Effect.sync(() => {
+		const chunks: Uint8Array[] = []
+		const data = utf8(node.data)
+		const storeLen = data.length + 3
 
-	// select model (spec expects ASCII 49/50 for model 1/2)
-	chunks.push(hex(GS, '(', 'k', 4, 0, '1', 'A', (node.model ?? 2) + 48, 0))
+		// select model (spec expects ASCII 49/50 for model 1/2)
+		chunks.push(hex(GS, '(', 'k', 4, 0, '1', 'A', (node.model ?? 2) + 48, 0))
 
-	// set module size
-	chunks.push(hex(GS, '(', 'k', 3, 0, '1', 'C', node.size ?? 3))
+		// set module size
+		chunks.push(hex(GS, '(', 'k', 3, 0, '1', 'C', node.size ?? 3))
 
-	// set error correction level
-	chunks.push(hex(GS, '(', 'k', 3, 0, '1', 'E', EC_MAP[node.errorCorrection ?? 'L']))
+		// set error correction level
+		chunks.push(hex(GS, '(', 'k', 3, 0, '1', 'E', EC_MAP[node.errorCorrection ?? 'L']))
 
-	// store data
-	const [pL, pH] = len16(storeLen)
-	chunks.push(hex(GS, '(', 'k', pL, pH, '1', 'P', '0'))
-	chunks.push(data)
+		// store data
+		const [pL, pH] = len16(storeLen)
+		chunks.push(hex(GS, '(', 'k', pL, pH, '1', 'P', '0'))
+		chunks.push(data)
 
-	// print
-	chunks.push(hex(GS, '(', 'k', 3, 0, '1', 'Q', '0'))
+		// print
+		chunks.push(hex(GS, '(', 'k', 3, 0, '1', 'Q', '0'))
 
-	return concat(...chunks)
-}
+		return concat(...chunks)
+	})
 
 /**
  * Encodes a PDF417 2D barcode.
  * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/gs_lparen_lk.html GS ( k - Set up and print 2D code
  */
-export const pdf417: Handler<PDF417> = (node) => {
-	const chunks: Uint8Array[] = []
-	const data = iconv.encode(node.data, 'utf8')
-	const storeLen = data.length + 3
+export const pdf417: Handler<PDF417> = (node) =>
+	Effect.sync(() => {
+		const chunks: Uint8Array[] = []
+		const data = utf8(node.data)
+		const storeLen = data.length + 3
 
-	if (node.columns !== undefined) {
-		chunks.push(hex(GS, '(', 'k', 3, 0, '0', 'A', node.columns))
-	}
-
-	if (node.rows !== undefined) {
-		chunks.push(hex(GS, '(', 'k', 3, 0, '0', 'B', node.rows))
-	}
-
-	if (node.width !== undefined) {
-		chunks.push(hex(GS, '(', 'k', 3, 0, '0', 'C', node.width))
-	}
-
-	if (node.height !== undefined) {
-		chunks.push(hex(GS, '(', 'k', 3, 0, '0', 'D', node.height))
-	}
-
-	if (node.errorCorrection !== undefined) {
-		const ec = node.errorCorrection
-		if (ec.mode === 'level') {
-			chunks.push(hex(GS, '(', 'k', 4, 0, '0', 'E', '0', ec.level + 48))
-		} else {
-			chunks.push(hex(GS, '(', 'k', 4, 0, '0', 'E', '1', ec.ratio))
+		if (node.columns !== undefined) {
+			chunks.push(hex(GS, '(', 'k', 3, 0, '0', 'A', node.columns))
 		}
-	}
 
-	if (node.truncated !== undefined) {
-		chunks.push(hex(GS, '(', 'k', 3, 0, '0', 'F', node.truncated ? 1 : 0))
-	}
+		if (node.rows !== undefined) {
+			chunks.push(hex(GS, '(', 'k', 3, 0, '0', 'B', node.rows))
+		}
 
-	const [pL, pH] = len16(storeLen)
-	chunks.push(hex(GS, '(', 'k', pL, pH, '0', 'P', '0'))
-	chunks.push(data)
+		if (node.width !== undefined) {
+			chunks.push(hex(GS, '(', 'k', 3, 0, '0', 'C', node.width))
+		}
 
-	chunks.push(hex(GS, '(', 'k', 3, 0, '0', 'Q', '0'))
+		if (node.height !== undefined) {
+			chunks.push(hex(GS, '(', 'k', 3, 0, '0', 'D', node.height))
+		}
 
-	return concat(...chunks)
-}
+		if (node.errorCorrection !== undefined) {
+			const ec = node.errorCorrection
+			if (ec.mode === 'level') {
+				chunks.push(hex(GS, '(', 'k', 4, 0, '0', 'E', '0', ec.level + 48))
+			} else {
+				chunks.push(hex(GS, '(', 'k', 4, 0, '0', 'E', '1', ec.ratio))
+			}
+		}
+
+		if (node.truncated !== undefined) {
+			chunks.push(hex(GS, '(', 'k', 3, 0, '0', 'F', node.truncated ? 1 : 0))
+		}
+
+		const [pL, pH] = len16(storeLen)
+		chunks.push(hex(GS, '(', 'k', pL, pH, '0', 'P', '0'))
+		chunks.push(data)
+
+		chunks.push(hex(GS, '(', 'k', 3, 0, '0', 'Q', '0'))
+
+		return concat(...chunks)
+	})
 
 /**
  * Encodes a DataMatrix 2D barcode.
  * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/gs_lparen_lk.html GS ( k - Set up and print 2D code
  */
-export const dataMatrix: Handler<DataMatrix> = (node) => {
-	const chunks: Uint8Array[] = []
-	const data = iconv.encode(node.data, 'utf8')
-	const storeLen = data.length + 3
+export const dataMatrix: Handler<DataMatrix> = (node) =>
+	Effect.sync(() => {
+		const chunks: Uint8Array[] = []
+		const data = utf8(node.data)
+		const storeLen = data.length + 3
 
-	// fn='B': symbol type, columns, rows (spec fn666, pL=5)
-	if (node.symbolType !== undefined || node.columns !== undefined || node.rows !== undefined) {
-		const symbolTypeValue = node.symbolType === 'rectangular' ? 1 : 0
-		chunks.push(hex(GS, '(', 'k', 5, 0, '6', 'B', symbolTypeValue, node.columns ?? 0, node.rows ?? 0))
-	}
+		// fn='B': symbol type, columns, rows (spec fn666, pL=5)
+		if (node.symbolType !== undefined || node.columns !== undefined || node.rows !== undefined) {
+			const symbolTypeValue = node.symbolType === 'rectangular' ? 1 : 0
+			chunks.push(hex(GS, '(', 'k', 5, 0, '6', 'B', symbolTypeValue, node.columns ?? 0, node.rows ?? 0))
+		}
 
-	if (node.size !== undefined) {
-		chunks.push(hex(GS, '(', 'k', 3, 0, '6', 'C', node.size))
-	}
+		if (node.size !== undefined) {
+			chunks.push(hex(GS, '(', 'k', 3, 0, '6', 'C', node.size))
+		}
 
-	const [pL, pH] = len16(storeLen)
-	chunks.push(hex(GS, '(', 'k', pL, pH, '6', 'P', '0'))
-	chunks.push(data)
+		const [pL, pH] = len16(storeLen)
+		chunks.push(hex(GS, '(', 'k', pL, pH, '6', 'P', '0'))
+		chunks.push(data)
 
-	chunks.push(hex(GS, '(', 'k', 3, 0, '6', 'Q', '0'))
+		chunks.push(hex(GS, '(', 'k', 3, 0, '6', 'Q', '0'))
 
-	return concat(...chunks)
-}
+		return concat(...chunks)
+	})
 
 /**
  * Encodes a MaxiCode 2D barcode.
  * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/gs_lparen_lk.html GS ( k - Set up and print 2D code
  */
-export const maxiCode: Handler<MaxiCode> = (node) => {
-	const chunks: Uint8Array[] = []
-	const data = iconv.encode(node.data, 'utf8')
-	const storeLen = data.length + 3
+export const maxiCode: Handler<MaxiCode> = (node) =>
+	Effect.sync(() => {
+		const chunks: Uint8Array[] = []
+		const data = utf8(node.data)
+		const storeLen = data.length + 3
 
-	if (node.mode !== undefined) {
-		// spec expects ASCII 50-54 for modes 2-6
-		chunks.push(hex(GS, '(', 'k', 3, 0, '2', 'A', node.mode + 48))
-	}
+		if (node.mode !== undefined) {
+			// spec expects ASCII 50-54 for modes 2-6
+			chunks.push(hex(GS, '(', 'k', 3, 0, '2', 'A', node.mode + 48))
+		}
 
-	const [pL, pH] = len16(storeLen)
-	chunks.push(hex(GS, '(', 'k', pL, pH, '2', 'P', '0'))
-	chunks.push(data)
+		const [pL, pH] = len16(storeLen)
+		chunks.push(hex(GS, '(', 'k', pL, pH, '2', 'P', '0'))
+		chunks.push(data)
 
-	chunks.push(hex(GS, '(', 'k', 3, 0, '2', 'Q', '0'))
+		chunks.push(hex(GS, '(', 'k', 3, 0, '2', 'Q', '0'))
 
-	return concat(...chunks)
-}
+		return concat(...chunks)
+	})
 
 /**
  * Encodes an Aztec Code 2D barcode.
  * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/gs_lparen_lk.html GS ( k - Set up and print 2D code
  */
-export const aztecCode: Handler<AztecCode> = (node) => {
-	const chunks: Uint8Array[] = []
-	const data = iconv.encode(node.data, 'utf8')
-	const storeLen = data.length + 3
+export const aztecCode: Handler<AztecCode> = (node) =>
+	Effect.sync(() => {
+		const chunks: Uint8Array[] = []
+		const data = utf8(node.data)
+		const storeLen = data.length + 3
 
-	// fn='B': combined mode + layers (spec fn566, pL=4)
-	const modeValue = node.mode === 'compact' ? 1 : 0
-	chunks.push(hex(GS, '(', 'k', 4, 0, '5', 'B', modeValue, node.layers ?? 0))
+		// fn='B': combined mode + layers (spec fn566, pL=4)
+		const modeValue = node.mode === 'compact' ? 1 : 0
+		chunks.push(hex(GS, '(', 'k', 4, 0, '5', 'B', modeValue, node.layers ?? 0))
 
-	if (node.size !== undefined) {
-		chunks.push(hex(GS, '(', 'k', 3, 0, '5', 'C', node.size))
-	}
+		if (node.size !== undefined) {
+			chunks.push(hex(GS, '(', 'k', 3, 0, '5', 'C', node.size))
+		}
 
-	if (node.errorCorrection !== undefined) {
-		chunks.push(hex(GS, '(', 'k', 3, 0, '5', 'E', node.errorCorrection))
-	}
+		if (node.errorCorrection !== undefined) {
+			chunks.push(hex(GS, '(', 'k', 3, 0, '5', 'E', node.errorCorrection))
+		}
 
-	const [pL, pH] = len16(storeLen)
-	chunks.push(hex(GS, '(', 'k', pL, pH, '5', 'P', '0'))
-	chunks.push(data)
+		const [pL, pH] = len16(storeLen)
+		chunks.push(hex(GS, '(', 'k', pL, pH, '5', 'P', '0'))
+		chunks.push(data)
 
-	chunks.push(hex(GS, '(', 'k', 3, 0, '5', 'Q', '0'))
+		chunks.push(hex(GS, '(', 'k', 3, 0, '5', 'Q', '0'))
 
-	return concat(...chunks)
-}
+		return concat(...chunks)
+	})
 
-const GS1_SYMBOLOGY_MAP: Record<GS1DataBarSymbology, number> = {
+const GS1_SYMBOLOGY_MAP = {
 	STACKED: 72,
 	'STACKED-OMNIDIRECTIONAL': 73,
 	'EXPANDED-STACKED': 76,
-}
+} satisfies Record<GS1DataBarSymbology, number>
 
-const COMPOSITE_LINE_BARCODE_MAP: Record<Exclude<CompositeLineBarcode, 'GS1-DATABAR'>, number> = {
+const COMPOSITE_LINE_BARCODE_MAP = {
 	EAN8: 65,
 	EAN13: 66,
 	'UPC-A': 67,
 	'UPC-E': 68,
 	'UPC-E-FULL': 69,
 	'GS1-128': 77,
-}
+} satisfies Record<Exclude<CompositeLineBarcode, 'GS1-DATABAR'>, number>
 
-const COMPOSITE_GS1_VARIANT_MAP: Record<CompositeGS1DataBarVariant, number> = {
+const COMPOSITE_GS1_VARIANT_MAP = {
 	OMNIDIRECTIONAL: 70,
 	TRUNCATED: 71,
 	STACKED: 72,
@@ -276,40 +297,41 @@ const COMPOSITE_GS1_VARIANT_MAP: Record<CompositeGS1DataBarVariant, number> = {
 	LIMITED: 74,
 	EXPANDED: 75,
 	'EXPANDED-STACKED': 76,
-}
+} satisfies Record<CompositeGS1DataBarVariant, number>
 
-const COMPOSITE_2D_MAP: Record<Composite2DSymbology, number> = {
+const COMPOSITE_2D_MAP = {
 	AUTO: 65,
 	'CC-C': 66,
-}
+} satisfies Record<Composite2DSymbology, number>
 
 /**
  * Encodes a GS1 DataBar (formerly RSS) barcode.
  * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/gs_lparen_lk.html GS ( k - Set up and print 2D code
  */
-export const gs1DataBar: Handler<GS1DataBar> = (node) => {
-	const chunks: Uint8Array[] = []
-	const data = iconv.encode(node.data, 'utf8')
-	const n = GS1_SYMBOLOGY_MAP[node.symbology]
-	const storeLen = data.length + 4
+export const gs1DataBar: Handler<GS1DataBar> = (node) =>
+	Effect.sync(() => {
+		const chunks: Uint8Array[] = []
+		const data = utf8(node.data)
+		const n = GS1_SYMBOLOGY_MAP[node.symbology]
+		const storeLen = data.length + 4
 
-	if (node.width !== undefined) {
-		chunks.push(hex(GS, '(', 'k', 3, 0, '3', 'C', node.width))
-	}
+		if (node.width !== undefined) {
+			chunks.push(hex(GS, '(', 'k', 3, 0, '3', 'C', node.width))
+		}
 
-	if (node.maxWidth !== undefined) {
-		const [wL, wH] = len16(node.maxWidth)
-		chunks.push(hex(GS, '(', 'k', 4, 0, '3', 'G', wL, wH))
-	}
+		if (node.maxWidth !== undefined) {
+			const [wL, wH] = len16(node.maxWidth)
+			chunks.push(hex(GS, '(', 'k', 4, 0, '3', 'G', wL, wH))
+		}
 
-	const [pL, pH] = len16(storeLen)
-	chunks.push(hex(GS, '(', 'k', pL, pH, '3', 'P', '0', n))
-	chunks.push(data)
+		const [pL, pH] = len16(storeLen)
+		chunks.push(hex(GS, '(', 'k', pL, pH, '3', 'P', '0', n))
+		chunks.push(data)
 
-	chunks.push(hex(GS, '(', 'k', 3, 0, '3', 'Q', '0'))
+		chunks.push(hex(GS, '(', 'k', 3, 0, '3', 'Q', '0'))
 
-	return concat(...chunks)
-}
+		return concat(...chunks)
+	})
 
 /**
  * Encodes a Composite Symbology barcode.
@@ -319,7 +341,7 @@ export const gs1DataBar: Handler<GS1DataBar> = (node) => {
  *
  * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/gs_lparen_lk.html GS ( k - Set up and print 2D code
  */
-export const composite: Handler<Composite> = (node) => {
+export const composite: Handler<Composite> = Effect.fn(function* (node) {
 	const chunks: Uint8Array[] = []
 
 	if (node.width !== undefined) {
@@ -339,21 +361,26 @@ export const composite: Handler<Composite> = (node) => {
 	// resolve b-value for line element
 	let lineB: number
 	if (node.lineElement.barcode === 'GS1-DATABAR') {
-		if (!node.lineElement.symbology) throw new Error('GS1 DataBar composite line element requires a symbology')
+		if (node.lineElement.symbology === undefined) {
+			return yield* new InvalidNodeError({
+				nodeType: 'composite',
+				message: 'GS1 DataBar composite line element requires a symbology',
+			})
+		}
 		lineB = COMPOSITE_GS1_VARIANT_MAP[node.lineElement.symbology]
 	} else {
 		lineB = COMPOSITE_LINE_BARCODE_MAP[node.lineElement.barcode]
 	}
 
 	// store line element (a='0')
-	const lineData = iconv.encode(node.lineElement.data, 'utf8')
+	const lineData = utf8(node.lineElement.data)
 	const lineStoreLen = lineData.length + 5
 	const [linePL, linePH] = len16(lineStoreLen)
 	chunks.push(hex(GS, '(', 'k', linePL, linePH, '4', 'P', '0', '0', lineB))
 	chunks.push(lineData)
 
 	// store 2D element (a='1')
-	const el2dData = iconv.encode(node.element2D.data, 'utf8')
+	const el2dData = utf8(node.element2D.data)
 	const el2dStoreLen = el2dData.length + 5
 	const [el2dPL, el2dPH] = len16(el2dStoreLen)
 	const el2dB = COMPOSITE_2D_MAP[node.element2D.symbology]
@@ -364,4 +391,4 @@ export const composite: Handler<Composite> = (node) => {
 	chunks.push(hex(GS, '(', 'k', 3, 0, '4', 'Q', '0'))
 
 	return concat(...chunks)
-}
+})

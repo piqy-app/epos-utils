@@ -1,7 +1,10 @@
 import type { AlignType, Country, Nodes } from '@piqy/epos-ast'
+import type { CodepageRegistry } from '@piqy/epos-codepages'
+import { Effect } from 'effect'
 
 import type { EncodeOptions } from './encoder.js'
-import type { HandlersRecord } from './handlers.js'
+import { UnsupportedNodeError, type EncoderError } from './errors.js'
+import { defaultHandlers } from './handlers/index.js'
 
 /**
  * Context passed through AST traversal during encoding.
@@ -9,8 +12,8 @@ import type { HandlersRecord } from './handlers.js'
 export interface EncoderContext {
 	codepage: number
 	country: Country | undefined
-	readonly handlers: HandlersRecord
 	readonly options: Required<EncodeOptions>
+	readonly codepages: CodepageRegistry.Service
 
 	/** Desired alignment (set by align handler, restored after block) */
 	alignment: AlignType
@@ -27,19 +30,18 @@ export interface EncoderContext {
 	marginLeft: number
 	printAreaWidth: number
 	tabStops: number[]
+	readonly usedCodepages: Set<number>
 
-	encode(node: Nodes): Uint8Array
+	encode(node: Nodes): Effect.Effect<Uint8Array, EncoderError>
 }
 
-/**
- * Creates an EncoderContext with the given options and handlers.
- */
-export const makeEncoderContext = (handlers: HandlersRecord, options: Required<EncodeOptions>, codepage: number): EncoderContext => {
+/** Creates independent state for one encoder execution. */
+export const createEncoderContext = (options: Required<EncodeOptions>, codepages: CodepageRegistry.Service) => {
 	const ctx: EncoderContext = {
-		codepage,
+		codepage: options.codepage,
 		country: 'usa',
-		handlers,
 		options,
+		codepages,
 		alignment: 'left',
 		lineAlignment: null,
 		upsideDown: false,
@@ -49,13 +51,16 @@ export const makeEncoderContext = (handlers: HandlersRecord, options: Required<E
 		marginLeft: 0,
 		printAreaWidth: 0,
 		tabStops: [],
+		usedCodepages: new Set([options.codepage]),
 
 		encode(node) {
-			const handler = handlers[node.type]
-			if (!handler) {
-				return new Uint8Array(0)
-			}
-			return handler(node as never, ctx)
+			return Effect.suspend(() => {
+				const handler = defaultHandlers[node.type]
+				if (handler === undefined) {
+					return new UnsupportedNodeError({ nodeType: node.type })
+				}
+				return handler(node, ctx)
+			})
 		},
 	}
 

@@ -1,40 +1,126 @@
-import { type Break, COUNTRY_CODES, type Country, type Tab, type Text, encodeChar } from '@piqy/epos-ast'
-import iconv from 'iconv-lite'
+import { type Break, type Country, type Tab, type Text } from '@piqy/epos-ast'
+import { type Codepage, UnencodableCharacterError } from '@piqy/epos-codepages'
+import { Effect } from 'effect'
 
-import { CODEPAGES, DEFAULT_CODEPAGE } from '../codepages.js'
-import { concat, ESC, HT, hex, LF } from '../commands.js'
+import { COUNTRY_CODES, hasCountryByte, matchCountryEncoding } from '../charset.js'
+import { concatAll, ESC, HT, hex, LF } from '../commands.js'
+import type { EncoderContext } from '../context.js'
 import type { Handler } from '../handlers.js'
 import { ALIGN_MAP } from './shared.js'
 
-/**
- * Encodes text using country charset substitutions where applicable.
- */
-const encodeTextWithCountry = (value: string, country: Country, codepage: number): Uint8Array => {
-	const encoding = CODEPAGES[codepage] || CODEPAGES[DEFAULT_CODEPAGE]
-	const bytes: number[] = []
-
-	for (const char of value) {
-		const byte = encodeChar(char, country)
-		if (byte !== undefined) {
-			bytes.push(byte)
-		} else {
-			const encoded = iconv.encode(char, encoding)
-			for (const b of encoded) {
-				bytes.push(b)
-			}
+// avoid creating a tiny byte array for every country-table token in long text
+const makeByteWriter = (initialCapacity: number) => {
+	let bytes = new Uint8Array(initialCapacity)
+	let length = 0
+	const ensureCapacity = (additionalLength: number) => {
+		const requiredLength = length + additionalLength
+		if (requiredLength <= bytes.length) {
+			return
 		}
+		const grown = new Uint8Array(Math.max(requiredLength, bytes.length * 2, 8))
+		grown.set(bytes)
+		bytes = grown
 	}
-
-	return new Uint8Array(bytes)
+	return {
+		append: (chunk: Uint8Array) => {
+			ensureCapacity(chunk.length)
+			bytes.set(chunk, length)
+			length += chunk.length
+		},
+		appendByte: (byte: number) => {
+			ensureCapacity(1)
+			bytes[length] = byte
+			length += 1
+		},
+		finish: () => (length === bytes.length ? bytes : bytes.slice(0, length)),
+	}
 }
 
+const encodeTextCharacterByCharacter = Effect.fn(function* (value: string, sourceIndex: number, country: Country, codepage: Codepage) {
+	const writer = makeByteWriter(value.length)
+	let index = 0
+	while (index < value.length) {
+		const codePoint = value.codePointAt(index)
+		if (codePoint === undefined) {
+			break
+		}
+		const character = String.fromCodePoint(codePoint)
+		const encoded = yield* Effect.mapError(
+			codepage.encode(character),
+			(cause) =>
+				new UnencodableCharacterError({
+					page: cause.page,
+					index: sourceIndex + index + cause.index,
+					character: cause.character,
+				}),
+		)
+		if (hasCountryByte(encoded, country)) {
+			return yield* new UnencodableCharacterError({ page: codepage.page, index: sourceIndex + index, character })
+		}
+		writer.append(encoded)
+		index += character.length
+	}
+	return writer.finish()
+})
+
+const encodePageText = Effect.fn(function* (value: string, sourceIndex: number, country: Country, codepage: Codepage) {
+	const encoded = yield* Effect.mapError(
+		codepage.encode(value),
+		(cause) =>
+			new UnencodableCharacterError({
+				page: cause.page,
+				index: sourceIndex + cause.index,
+				character: cause.character,
+			}),
+	)
+	if (!hasCountryByte(encoded, country)) {
+		return encoded
+	}
+	return yield* encodeTextCharacterByCharacter(value, sourceIndex, country, codepage)
+})
+
+const encodeTextWithCountry = Effect.fn(function* (
+	value: string,
+	sourceIndex: number,
+	country: Country,
+	codepage: number,
+	ctx: EncoderContext,
+) {
+	const selectedPage = yield* ctx.codepages.resolve(codepage)
+	let writer: ReturnType<typeof makeByteWriter> | undefined
+	let index = 0
+	let runStart = 0
+	while (index < value.length) {
+		const countryEncoding = matchCountryEncoding(value, index, country)
+		if (countryEncoding !== undefined) {
+			writer ??= makeByteWriter(value.length)
+			if (runStart < index) {
+				writer.append(yield* encodePageText(value.slice(runStart, index), sourceIndex + runStart, country, selectedPage))
+			}
+			writer.appendByte(countryEncoding.byte)
+			index += countryEncoding.token.length
+			runStart = index
+			continue
+		}
+		const codePoint = value.codePointAt(index)
+		if (codePoint === undefined) {
+			break
+		}
+		index += String.fromCodePoint(codePoint).length
+	}
+	if (writer === undefined) {
+		return yield* encodePageText(value, sourceIndex, country, selectedPage)
+	}
+	if (runStart < value.length) {
+		writer.append(yield* encodePageText(value.slice(runStart), sourceIndex + runStart, country, selectedPage))
+	}
+	return writer.finish()
+})
+
 /**
- * Encodes text content with optional codepage and country selection.
- * Syncs alignment with printer if needed (alignment only takes effect at line start).
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_lt.html ESC t - Select character code table
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_cr.html ESC R - Select international character set
+ * Encodes text with explicit code-page and international-character-set state.
  */
-export const text: Handler<Text> = (node, ctx) => {
+export const text: Handler<Text> = Effect.fn(function* (node, ctx) {
 	const chunks: Uint8Array[] = []
 
 	if (ctx.lineAlignment !== ctx.alignment) {
@@ -47,43 +133,36 @@ export const text: Handler<Text> = (node, ctx) => {
 		ctx.lineUpsideDown = ctx.upsideDown
 	}
 
-	const codepage = node.codepage ?? ctx.codepage
-
-	if (codepage !== ctx.codepage) {
-		chunks.push(hex(ESC, 't', codepage))
-		ctx.codepage = codepage
-	}
-
 	if (node.country !== undefined && node.country !== ctx.country) {
-		const countryCode = COUNTRY_CODES[node.country]
-		if (countryCode !== undefined) {
-			chunks.push(hex(ESC, 'R', countryCode))
-			ctx.country = node.country
+		chunks.push(hex(ESC, 'R', COUNTRY_CODES[node.country]))
+		ctx.country = node.country
+	}
+
+	const country = ctx.country ?? 'usa'
+	const segments =
+		node.codepage === undefined && ctx.options.automaticCodepage
+			? yield* ctx.codepages.plan(node.value, { currentPage: ctx.codepage, usedPages: ctx.usedCodepages })
+			: [{ page: node.codepage ?? ctx.codepage, text: node.value }]
+	let sourceIndex = 0
+	for (const segment of segments) {
+		if (segment.page !== ctx.codepage) {
+			chunks.push(hex(ESC, 't', segment.page))
+			ctx.codepage = segment.page
 		}
+		chunks.push(yield* encodeTextWithCountry(segment.text, sourceIndex, country, segment.page, ctx))
+		ctx.usedCodepages.add(segment.page)
+		sourceIndex += segment.text.length
 	}
+	return concatAll(chunks)
+})
 
-	const encoding = CODEPAGES[codepage] || CODEPAGES[DEFAULT_CODEPAGE]
-	if (node.country) {
-		chunks.push(encodeTextWithCountry(node.value, node.country, codepage))
-	} else {
-		chunks.push(new Uint8Array(iconv.encode(node.value, encoding)))
-	}
+/** Resets line-scoped state after a line feed. */
+export const lineBreak: Handler<Break> = (_, ctx) =>
+	Effect.sync(() => {
+		ctx.lineAlignment = null
+		ctx.lineUpsideDown = null
+		return hex(LF)
+	})
 
-	return concat(...chunks)
-}
-
-/**
- * Encodes a line feed. Resets lineAlignment so next text can sync if needed.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/lf.html LF - Print and line feed
- */
-export const lineBreak: Handler<Break> = (_, ctx) => {
-	ctx.lineAlignment = null
-	ctx.lineUpsideDown = null
-	return hex(LF)
-}
-
-/**
- * Encodes a horizontal tab.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/ht.html HT - Horizontal tab
- */
-export const tab: Handler<Tab> = () => hex(HT)
+/** Encodes a horizontal tab. */
+export const tab: Handler<Tab> = () => Effect.succeed(hex(HT))

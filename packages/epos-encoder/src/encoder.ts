@@ -1,29 +1,37 @@
-import type { Root } from '@piqy/epos-ast'
+import type { FlowContent, Root } from '@piqy/epos-ast'
+import { CodepageRegistry } from '@piqy/epos-codepages'
+import { Effect, Stream } from 'effect'
 
-import { concat, ESC, hex } from './commands.js'
-import type { EncoderExtension } from './extension.js'
-import type { HandlersRecord } from './handlers.js'
-import { applyPostProcess, prepareEncoder } from './internal.js'
+import { concatAll, ESC, hex } from './commands.js'
+import { createEncoderContext } from './context.js'
 
 export interface EncodeOptions {
-	handlers?: Partial<HandlersRecord>
-	extensions?: EncoderExtension[]
-	codepage?: number
+	/** Page selected after printer initialization. Defaults to page 0 (PC437). */
+	readonly codepage?: number
+	/** Selects pages for text nodes that do not set one. Defaults to true. */
+	readonly automaticCodepage?: boolean
 }
 
-/**
- * Encodes an EPOS AST to binary ESC/POS data.
- */
-export const encode = (ast: Root, options: EncodeOptions = {}): Uint8Array => {
-	const { ctx, extensions } = prepareEncoder(options)
+/** Encodes a stream of EPOS AST nodes to ESC/POS byte chunks. */
+export const encodeStream = <E, R>(nodes: Stream.Stream<FlowContent, E, R>, options: EncodeOptions = {}) =>
+	Stream.fromEffect(CodepageRegistry).pipe(
+		Stream.flatMap((codepages) => {
+			const requiredOptions: Required<EncodeOptions> = {
+				codepage: options.codepage ?? 0,
+				automaticCodepage: options.automaticCodepage ?? true,
+			}
+			const ctx = createEncoderContext(requiredOptions, codepages)
+			const initialization = requiredOptions.codepage === 0 ? hex(ESC, '@') : hex(ESC, '@', ESC, 't', requiredOptions.codepage)
 
-	const chunks: Uint8Array[] = []
+			return Stream.concat(
+				Stream.make(initialization),
+				Stream.mapEffect(nodes, (node) => ctx.encode(node)),
+			)
+		}),
+	)
 
-	chunks.push(hex(ESC, '@')) // initialize
-	for (const child of ast.children) {
-		chunks.push(ctx.encode(child))
-	}
-
-	const output = concat(...chunks)
-	return applyPostProcess(output, extensions)
-}
+/** Encodes an EPOS AST to one ESC/POS byte array. */
+export const encode = Effect.fn(function* (ast: Root, options: EncodeOptions = {}) {
+	const chunks = yield* Stream.runCollect(encodeStream(Stream.fromIterable(ast.children), options))
+	return concatAll(chunks)
+})

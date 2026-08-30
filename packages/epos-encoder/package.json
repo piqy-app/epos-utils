@@ -3,70 +3,49 @@
   "version": "0.2.0",
   "description": "Encode EPOS abstract syntax trees as ESC/POS printer commands",
   "keywords": [
-    "escpos",
     "encoder",
+    "escpos",
     "pos",
     "printer",
     "receipt"
   ],
-  "type": "module",
-  "sideEffects": false,
-  "files": [
-    "dist",
-    "LICENSE",
-    "README.md"
-  ],
-  "main": "./dist/index.mjs",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.mts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs"
-    },
-    "./effect": {
-      "types": "./dist/effect.d.mts",
-      "import": "./dist/effect.mjs"
-    }
+  "homepage": "https://github.com/piqy-app/epos-utils/tree/main/packages/epos-encoder#readme",
+  "bugs": {
+    "url": "https://github.com/piqy-app/epos-utils/issues"
   },
-  "scripts": {
-    "build": "tsdown src/index.ts src/effect.ts --format esm --dts --clean",
-    "check": "tsc --noEmit",
-    "prepublishOnly": "pnpm build"
-  },
-  "dependencies": {
-    "@piqy/epos-ast": "workspace:^",
-    "iconv-lite": "0.7.3"
-  },
-  "peerDependencies": {
-    "effect": "catalog:"
-  },
-  "peerDependenciesMeta": {
-    "effect": {
-      "optional": true
-    }
-  },
-  "devDependencies": {
-    "@types/node": "^26.1.1",
-    "effect": "catalog:",
-    "tsdown": "catalog:",
-    "typescript": "catalog:"
-  },
-  "engines": {
-    "node": ">=22"
-  },
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
-  },
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/piqy-app/epos-utils.git",
     "directory": "packages/epos-encoder"
   },
-  "bugs": {
-    "url": "https://github.com/piqy-app/epos-utils/issues"
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
   },
-  "homepage": "https://github.com/piqy-app/epos-utils/tree/main/packages/epos-encoder#readme",
-  "license": "MIT"
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "vp pack",
+    "check": "vp check",
+    "prepublishOnly": "vp pack"
+  },
+  "dependencies": {
+    "@piqy/epos-ast": "workspace:^",
+    "@piqy/epos-codepages": "workspace:^",
+    "effect": "catalog:"
+  },
+  "engines": {
+    "node": ">=22"
+  }
 }

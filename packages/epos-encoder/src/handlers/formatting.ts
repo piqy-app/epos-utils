@@ -11,12 +11,13 @@ import type {
 	Underline,
 	UpsideDown,
 } from '@piqy/epos-ast'
+import { Effect } from 'effect'
 
 import { concat, ESC, GS, hex } from '../commands.js'
 import type { Handler } from '../handlers.js'
 import { encodeChildren } from './shared.js'
 
-const FONT_MAP: Record<FontType, number> = {
+const FONT_MAP = {
 	A: 0,
 	B: 1,
 	C: 2,
@@ -24,85 +25,61 @@ const FONT_MAP: Record<FontType, number> = {
 	E: 4,
 	specialA: 97,
 	specialB: 98,
-}
+} satisfies Record<FontType, number>
 
-/**
- * Encodes bold/emphasized text.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_ce.html ESC E - Turn emphasized mode on/off
- */
-export const strong: Handler<Strong> = (node, ctx) => concat(hex(ESC, 'E', 0x01), encodeChildren(node.children, ctx), hex(ESC, 'E', 0x00))
+/** Encodes bold or emphasized text. */
+export const strong: Handler<Strong> = (node, ctx) =>
+	Effect.map(encodeChildren(node.children, ctx), (bytes) => concat(hex(ESC, 'E', 0x01), bytes, hex(ESC, 'E', 0x00)))
 
-/**
- * Encodes underlined text.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_minus.html ESC - - Turn underline mode on/off
- */
+/** Encodes underlined text. */
 export const underline: Handler<Underline> = (node, ctx) => {
-	const n = node.double ? 2 : 1
-	return concat(hex(ESC, '-', n), encodeChildren(node.children, ctx), hex(ESC, '-', 0))
+	const width = node.double ? 2 : 1
+	return Effect.map(encodeChildren(node.children, ctx), (bytes) => concat(hex(ESC, '-', width), bytes, hex(ESC, '-', 0)))
 }
 
-/**
- * Encodes inverted (white on black) text.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/gs_cb.html GS B - Turn white/black reverse print mode on/off
- */
-export const inverted: Handler<Inverted> = (node, ctx) => concat(hex(GS, 'B', 0x01), encodeChildren(node.children, ctx), hex(GS, 'B', 0x00))
+/** Encodes inverted text. */
+export const inverted: Handler<Inverted> = (node, ctx) =>
+	Effect.map(encodeChildren(node.children, ctx), (bytes) => concat(hex(GS, 'B', 0x01), bytes, hex(GS, 'B', 0x00)))
 
-/**
- * Encodes scaled text with width/height multipliers.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/gs_exclamation.html GS ! - Select character size
- */
+/** Encodes scaled text. */
 export const scaled: Handler<Scaled> = (node, ctx) => {
-	const n = ((node.width - 1) << 4) | (node.height - 1)
-	return concat(hex(GS, '!', n), encodeChildren(node.children, ctx), hex(GS, '!', 0x00))
+	const size = ((node.width - 1) << 4) | (node.height - 1)
+	return Effect.map(encodeChildren(node.children, ctx), (bytes) => concat(hex(GS, '!', size), bytes, hex(GS, '!', 0x00)))
 }
 
-/**
- * Encodes 90° clockwise rotated text.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_cv.html ESC V - Turn 90° clockwise rotation mode on/off
- */
+/** Encodes 90-degree clockwise rotated text. */
 export const rotated: Handler<Rotated> = (node, ctx) => {
-	const n = node.spacing === 1.5 ? 2 : 1
-	return concat(hex(ESC, 'V', n), encodeChildren(node.children, ctx), hex(ESC, 'V', 0x00))
+	const spacing = node.spacing === 1.5 ? 2 : 1
+	return Effect.map(encodeChildren(node.children, ctx), (bytes) => concat(hex(ESC, 'V', spacing), bytes, hex(ESC, 'V', 0x00)))
 }
 
-/**
- * Encodes upside-down printed text.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_lbrace.html ESC { - Turn upside-down print mode on/off
- */
-export const upsideDown: Handler<UpsideDown> = (node, ctx) => {
-	const prev = ctx.upsideDown
-	ctx.upsideDown = true
-	const result = encodeChildren(node.children, ctx)
-	ctx.upsideDown = prev
-	return result
-}
+/** Encodes upside-down text and restores the prior traversal state. */
+export const upsideDown: Handler<UpsideDown> = (node, ctx) =>
+	Effect.suspend(() => {
+		const previous = ctx.upsideDown
+		ctx.upsideDown = true
+		return Effect.ensuring(
+			encodeChildren(node.children, ctx),
+			Effect.sync(() => {
+				ctx.upsideDown = previous
+			}),
+		)
+	})
 
-/**
- * Encodes smoothed character rendering (for 4x+ sized characters).
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/gs_lb.html GS b - Turn smoothing mode on/off
- */
+/** Encodes smoothed text. */
 export const smoothing: Handler<Smoothing> = (node, ctx) =>
-	concat(hex(GS, 'b', 0x01), encodeChildren(node.children, ctx), hex(GS, 'b', 0x00))
+	Effect.map(encodeChildren(node.children, ctx), (bytes) => concat(hex(GS, 'b', 0x01), bytes, hex(GS, 'b', 0x00)))
 
-/**
- * Encodes double-strike printed text.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_cg.html ESC G - Turn double-strike mode on/off
- */
+/** Encodes double-strike text. */
 export const doubleStrike: Handler<DoubleStrike> = (node, ctx) =>
-	concat(hex(ESC, 'G', 0x01), encodeChildren(node.children, ctx), hex(ESC, 'G', 0x00))
+	Effect.map(encodeChildren(node.children, ctx), (bytes) => concat(hex(ESC, 'G', 0x01), bytes, hex(ESC, 'G', 0x00)))
 
-/**
- * Encodes font selection.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_cm.html ESC M - Select character font
- */
+/** Encodes font selection. */
 export const font: Handler<Font> = (node, ctx) =>
-	concat(hex(ESC, 'M', FONT_MAP[node.font]), encodeChildren(node.children, ctx), hex(ESC, 'M', FONT_MAP['A']))
+	Effect.map(encodeChildren(node.children, ctx), (bytes) => concat(hex(ESC, 'M', FONT_MAP[node.font]), bytes, hex(ESC, 'M', FONT_MAP.A)))
 
-/**
- * Encodes print color selection.
- * @see https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_lr.html ESC r - Select print color
- */
+/** Encodes print color selection. */
 export const color: Handler<Color> = (node, ctx) => {
-	const n = node.color === 'red' ? 1 : 0
-	return concat(hex(ESC, 'r', n), encodeChildren(node.children, ctx), hex(ESC, 'r', 0x00))
+	const colorCode = node.color === 'red' ? 1 : 0
+	return Effect.map(encodeChildren(node.children, ctx), (bytes) => concat(hex(ESC, 'r', colorCode), bytes, hex(ESC, 'r', 0x00)))
 }

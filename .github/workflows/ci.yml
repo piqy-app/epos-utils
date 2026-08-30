@@ -20,5 +20,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm fmt:check
+      - run: pnpm build
       - run: pnpm lint
       - run: pnpm check
+      - run: pnpm test
+      - run: node tools/check-codepage-tree-shaking.mjs
