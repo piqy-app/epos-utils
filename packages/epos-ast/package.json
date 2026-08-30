@@ -1,6 +1,6 @@
 {
   "name": "@piqy/epos-ast",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "TypeScript types for representing ESC/POS commands as a unist syntax tree",
   "keywords": [
     "escpos",
