@@ -2,38 +2,44 @@ import { type Break, type Country, type Tab, type Text } from '@piqy/epos-ast'
 import { type Codepage, UnencodableCharacterError } from '@piqy/epos-codepages'
 import { Effect } from 'effect'
 
-import { COUNTRY_CODES, isCountryByte, matchCountryEncoding } from '../charset.js'
-import { concat, ESC, HT, hex, LF } from '../commands.js'
+import { COUNTRY_CODES, hasCountryByte, matchCountryEncoding } from '../charset.js'
+import { concatAll, ESC, HT, hex, LF } from '../commands.js'
 import type { EncoderContext } from '../context.js'
 import type { Handler } from '../handlers.js'
 import { ALIGN_MAP } from './shared.js'
 
-const hasCountryEncoding = (value: string, country: Country) => {
-	let index = 0
-	while (index < value.length) {
-		if (matchCountryEncoding(value, index, country) !== undefined) {
-			return true
+// avoid creating a tiny byte array for every country-table token in long text
+const makeByteWriter = (initialCapacity: number) => {
+	let bytes = new Uint8Array(initialCapacity)
+	let length = 0
+	const ensureCapacity = (additionalLength: number) => {
+		const requiredLength = length + additionalLength
+		if (requiredLength <= bytes.length) {
+			return
 		}
-		const codePoint = value.codePointAt(index)
-		if (codePoint === undefined) {
-			break
-		}
-		index += String.fromCodePoint(codePoint).length
+		const grown = new Uint8Array(Math.max(requiredLength, bytes.length * 2, 8))
+		grown.set(bytes)
+		bytes = grown
 	}
-	return false
+	return {
+		append: (chunk: Uint8Array) => {
+			ensureCapacity(chunk.length)
+			bytes.set(chunk, length)
+			length += chunk.length
+		},
+		appendByte: (byte: number) => {
+			ensureCapacity(1)
+			bytes[length] = byte
+			length += 1
+		},
+		finish: () => (length === bytes.length ? bytes : bytes.slice(0, length)),
+	}
 }
 
-const encodeTextCharacterByCharacter = Effect.fn(function* (value: string, country: Country, codepage: Codepage) {
-	const chunks: Uint8Array[] = []
+const encodeTextCharacterByCharacter = Effect.fn(function* (value: string, sourceIndex: number, country: Country, codepage: Codepage) {
+	const writer = makeByteWriter(value.length)
 	let index = 0
 	while (index < value.length) {
-		const countryEncoding = matchCountryEncoding(value, index, country)
-		if (countryEncoding !== undefined) {
-			chunks.push(Uint8Array.of(countryEncoding.byte))
-			index += countryEncoding.token.length
-			continue
-		}
-
 		const codePoint = value.codePointAt(index)
 		if (codePoint === undefined) {
 			break
@@ -41,26 +47,68 @@ const encodeTextCharacterByCharacter = Effect.fn(function* (value: string, count
 		const character = String.fromCodePoint(codePoint)
 		const encoded = yield* Effect.mapError(
 			codepage.encode(character),
-			(cause) => new UnencodableCharacterError({ page: cause.page, index: index + cause.index, character: cause.character }),
+			(cause) =>
+				new UnencodableCharacterError({
+					page: cause.page,
+					index: sourceIndex + index + cause.index,
+					character: cause.character,
+				}),
 		)
-		if (encoded.some((byte) => isCountryByte(byte, country))) {
-			return yield* new UnencodableCharacterError({ page: codepage.page, index, character })
+		if (hasCountryByte(encoded, country)) {
+			return yield* new UnencodableCharacterError({ page: codepage.page, index: sourceIndex + index, character })
 		}
-		chunks.push(encoded)
+		writer.append(encoded)
 		index += character.length
 	}
-	return concat(...chunks)
+	return writer.finish()
+})
+
+const encodePageText = Effect.fn(function* (value: string, sourceIndex: number, country: Country, codepage: Codepage) {
+	const encoded = yield* Effect.mapError(
+		codepage.encode(value),
+		(cause) =>
+			new UnencodableCharacterError({
+				page: cause.page,
+				index: sourceIndex + cause.index,
+				character: cause.character,
+			}),
+	)
+	if (!hasCountryByte(encoded, country)) {
+		return encoded
+	}
+	return yield* encodeTextCharacterByCharacter(value, sourceIndex, country, codepage)
 })
 
 const encodeTextWithCountry = Effect.fn(function* (value: string, country: Country, codepage: number, ctx: EncoderContext) {
 	const selectedPage = yield* ctx.codepages.resolve(codepage)
-	if (!hasCountryEncoding(value, country)) {
-		const encoded = yield* selectedPage.encode(value)
-		if (!encoded.some((byte) => isCountryByte(byte, country))) {
-			return encoded
+	let writer: ReturnType<typeof makeByteWriter> | undefined
+	let index = 0
+	let runStart = 0
+	while (index < value.length) {
+		const countryEncoding = matchCountryEncoding(value, index, country)
+		if (countryEncoding !== undefined) {
+			writer ??= makeByteWriter(value.length)
+			if (runStart < index) {
+				writer.append(yield* encodePageText(value.slice(runStart, index), runStart, country, selectedPage))
+			}
+			writer.appendByte(countryEncoding.byte)
+			index += countryEncoding.token.length
+			runStart = index
+			continue
 		}
+		const codePoint = value.codePointAt(index)
+		if (codePoint === undefined) {
+			break
+		}
+		index += String.fromCodePoint(codePoint).length
 	}
-	return yield* encodeTextCharacterByCharacter(value, country, selectedPage)
+	if (writer === undefined) {
+		return yield* encodePageText(value, 0, country, selectedPage)
+	}
+	if (runStart < value.length) {
+		writer.append(yield* encodePageText(value.slice(runStart), runStart, country, selectedPage))
+	}
+	return writer.finish()
 })
 
 /**
@@ -97,7 +145,7 @@ export const text: Handler<Text> = Effect.fn(function* (node, ctx) {
 		chunks.push(yield* encodeTextWithCountry(segment.text, country, segment.page, ctx))
 		ctx.usedCodepages.add(segment.page)
 	}
-	return concat(...chunks)
+	return concatAll(chunks)
 })
 
 /** Resets line-scoped state after a line feed. */

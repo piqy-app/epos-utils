@@ -1,5 +1,4 @@
 import type { Country } from '@piqy/epos-ast'
-import { Array as EffectArray, Order } from 'effect'
 
 /**
  * ESC/POS country code mapping (ESC R n command).
@@ -452,7 +451,7 @@ interface CountryEncoding {
 	readonly token: string
 }
 
-const countryEncodingTables = new Map<Country, readonly CountryEncoding[]>()
+const countryEncodingTables = new Map<Country, ReadonlyMap<string, readonly CountryEncoding[]>>()
 
 const getCountryEncodings = (country: Country) => {
 	const cached = countryEncodingTables.get(country)
@@ -460,19 +459,38 @@ const getCountryEncodings = (country: Country) => {
 		return cached
 	}
 	const table: CharTable = CHARSET_TABLES[country]
-	const encodings = EffectArray.sortWith(
-		Object.entries(table).flatMap(([byte, token]) => (token === undefined ? [] : [{ byte: Number(byte), token }])),
-		(encoding) => encoding.token.length,
-		Order.flip(Order.Number),
-	)
+	const encodings = new Map<string, CountryEncoding[]>()
+	for (const [byte, token] of Object.entries(table)) {
+		if (token === undefined) {
+			continue
+		}
+		const firstCharacter = String.fromCodePoint(token.codePointAt(0) ?? 0)
+		const candidates = encodings.get(firstCharacter) ?? []
+		candidates.push({ byte: Number(byte), token })
+		candidates.sort((left, right) => right.token.length - left.token.length)
+		encodings.set(firstCharacter, candidates)
+	}
 	countryEncodingTables.set(country, encodings)
 	return encodings
 }
 
-export const matchCountryEncoding = (text: string, index: number, country: Country) =>
-	getCountryEncodings(country).find((encoding) => text.startsWith(encoding.token, index))
+export const matchCountryEncoding = (text: string, index: number, country: Country) => {
+	const codePoint = text.codePointAt(index)
+	if (codePoint === undefined) {
+		return undefined
+	}
+	const character = String.fromCodePoint(codePoint)
+	return getCountryEncodings(country)
+		.get(character)
+		?.find((encoding) => text.startsWith(encoding.token, index))
+}
 
-export const isCountryByte = (byte: number, country: Country) => {
+export const hasCountryByte = (bytes: Uint8Array, country: Country) => {
 	const table: CharTable = CHARSET_TABLES[country]
-	return table[byte] !== undefined
+	for (const byte of bytes) {
+		if (table[byte] !== undefined) {
+			return true
+		}
+	}
+	return false
 }

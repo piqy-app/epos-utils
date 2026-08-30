@@ -45,23 +45,40 @@ export const makeCodepageRegistry = Effect.fn(function* (codepages: readonly Cod
 	})
 	const plan: CodepageRegistry.Service['plan'] = Effect.fn(function* (text, options = {}) {
 		const candidates = [...byPage.values()]
-		const byPreference = [
-			...candidates.filter((codepage) => codepage.page === options.currentPage),
-			...candidates.filter((codepage) => options.usedPages?.has(codepage.page) === true && codepage.page !== options.currentPage),
-			...candidates.filter((codepage) => codepage.page !== options.currentPage && options.usedPages?.has(codepage.page) !== true),
-		]
+		const byPreference: Codepage[] = []
+		let currentCodepage = options.currentPage === undefined ? undefined : byPage.get(options.currentPage)
+		if (currentCodepage !== undefined) {
+			byPreference.push(currentCodepage)
+		}
+		for (const codepage of candidates) {
+			if (codepage !== currentCodepage && options.usedPages?.has(codepage.page) === true) {
+				byPreference.push(codepage)
+			}
+		}
+		for (const codepage of candidates) {
+			if (codepage !== currentCodepage && options.usedPages?.has(codepage.page) !== true) {
+				byPreference.push(codepage)
+			}
+		}
 		const segments: { page: number; text: string }[] = []
 		let index = 0
-		let currentPage = options.currentPage
+		let segmentStart = 0
+		let segmentPage: number | undefined
 		while (index < text.length) {
 			const codePoint = text.codePointAt(index)
 			if (codePoint === undefined) {
 				break
 			}
 			const character = String.fromCodePoint(codePoint)
-			const selected =
-				byPreference.find((codepage) => codepage.page === currentPage && codepage.canEncode(character)) ??
-				byPreference.find((codepage) => codepage.canEncode(character))
+			let selected = currentCodepage?.canEncode(character) === true ? currentCodepage : undefined
+			if (selected === undefined) {
+				for (const codepage of byPreference) {
+					if (codepage !== currentCodepage && codepage.canEncode(character)) {
+						selected = codepage
+						break
+					}
+				}
+			}
 			if (selected === undefined) {
 				return yield* new NoCodepageSupportsCharacterError({
 					index,
@@ -69,14 +86,18 @@ export const makeCodepageRegistry = Effect.fn(function* (codepages: readonly Cod
 					pages: candidates.map((codepage) => codepage.page),
 				})
 			}
-			const previous = segments.at(-1)
-			if (previous?.page === selected.page) {
-				previous.text += character
-			} else {
-				segments.push({ page: selected.page, text: character })
+			if (segmentPage !== selected.page) {
+				if (segmentPage !== undefined) {
+					segments.push({ page: segmentPage, text: text.slice(segmentStart, index) })
+				}
+				segmentPage = selected.page
+				segmentStart = index
 			}
-			currentPage = selected.page
+			currentCodepage = selected
 			index += character.length
+		}
+		if (segmentPage !== undefined) {
+			segments.push({ page: segmentPage, text: text.slice(segmentStart) })
 		}
 		return segments
 	})

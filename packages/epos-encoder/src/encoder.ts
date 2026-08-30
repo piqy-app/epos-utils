@@ -1,7 +1,7 @@
 import type { Root } from '@piqy/epos-ast'
 import { Effect } from 'effect'
 
-import { concat } from './commands.js'
+import { concatAll } from './commands.js'
 import { prepareEncoder } from './internal.js'
 
 export interface EncodeOptions {
@@ -17,5 +17,6 @@ export interface EncodeOptions {
 export const encode = Effect.fn(function* (ast: Root, options: EncodeOptions = {}) {
 	const { ctx, initialization } = yield* prepareEncoder(options)
 	const encodedChildren = yield* Effect.forEach(ast.children, (node) => ctx.encode(node))
-	return concat(initialization, ...encodedChildren)
+	encodedChildren.unshift(initialization)
+	return concatAll(encodedChildren)
 })

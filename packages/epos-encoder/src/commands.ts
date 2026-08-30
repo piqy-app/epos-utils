@@ -25,8 +25,11 @@ export const hex = (...bytes: (number | string)[]) => new Uint8Array(bytes.map(c
 
 export const utf8 = (value: string) => new TextEncoder().encode(value)
 
-export const concat = (...arrays: Uint8Array[]) => {
-	const length = arrays.reduce((total, array) => total + array.length, 0)
+export const concatAll = (arrays: readonly Uint8Array[]) => {
+	let length = 0
+	for (const array of arrays) {
+		length += array.length
+	}
 	const result = new Uint8Array(length)
 	let offset = 0
 	for (const array of arrays) {
@@ -35,5 +38,7 @@ export const concat = (...arrays: Uint8Array[]) => {
 	}
 	return result
 }
+
+export const concat = (...arrays: Uint8Array[]) => concatAll(arrays)
 
 export const len16 = (length: number) => [length & 0xff, (length >> 8) & 0xff] as const

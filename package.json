@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "benchmark": "vp run -r build && node --expose-gc tools/benchmark.mjs && node tools/benchmark-memory.mjs",
     "build": "vp run -r build",
     "check": "vp check",
     "check:tree-shaking": "vp run -r build && node tools/check-codepage-tree-shaking.mjs",

@@ -13,6 +13,11 @@ interface EncodingCandidate {
 	readonly byte: number
 }
 
+interface EncodingIndex {
+	readonly byteByToken: ReadonlyMap<string, number>
+	readonly compoundsByFirstCharacter: ReadonlyMap<string, readonly EncodingCandidate[]> | undefined
+}
+
 const decodeTable = (definition: SingleByteCodepageDefinition) => {
 	const table = Array.from({ length: 256 }, (_, byte) => String.fromCharCode(byte))
 	const high = Array.from(definition.high)
@@ -25,21 +30,21 @@ const decodeTable = (definition: SingleByteCodepageDefinition) => {
 	return table
 }
 
-const encodingCandidates = (definition: SingleByteCodepageDefinition, table: readonly string[]) => {
-	const byFirstCharacter = new Map<string, EncodingCandidate[]>()
+const encodingIndex = (definition: SingleByteCodepageDefinition, table: readonly string[]) => {
+	const byteByToken = new Map<string, number>()
+	let compoundsByFirstCharacter: Map<string, EncodingCandidate[]> | undefined
 	const add = (token: string | undefined, byte: number) => {
-		if (token === undefined || token === REPLACEMENT_CHARACTER || token.length === 0) {
+		if (token === undefined || token === REPLACEMENT_CHARACTER || token.length === 0 || byteByToken.has(token)) {
 			return
 		}
-		const firstCharacter = Array.from(token)[0]
-		if (firstCharacter === undefined) {
-			return
-		}
-		const candidates = byFirstCharacter.get(firstCharacter) ?? []
-		if (!candidates.some((candidate) => candidate.token === token)) {
-			candidates.push({ token, byte })
-			candidates.sort((left, right) => right.token.length - left.token.length)
-			byFirstCharacter.set(firstCharacter, candidates)
+		byteByToken.set(token, byte)
+		const firstCharacter = String.fromCodePoint(token.codePointAt(0) ?? 0)
+		if (firstCharacter !== token) {
+			compoundsByFirstCharacter ??= new Map()
+			const compounds = compoundsByFirstCharacter.get(firstCharacter) ?? []
+			compounds.push({ token, byte })
+			compounds.sort((left, right) => right.token.length - left.token.length)
+			compoundsByFirstCharacter.set(firstCharacter, compounds)
 		}
 	}
 
@@ -52,10 +57,13 @@ const encodingCandidates = (definition: SingleByteCodepageDefinition, table: rea
 	for (const [token, byte] of definition.aliases ?? []) {
 		add(token, byte)
 	}
-	return byFirstCharacter
+	return { byteByToken, compoundsByFirstCharacter }
 }
 
-const canEncodeText = (candidates: ReadonlyMap<string, readonly EncodingCandidate[]>, text: string) => {
+const matchingCompound = (encoding: EncodingIndex, text: string, index: number, character: string) =>
+	encoding.compoundsByFirstCharacter?.get(character)?.find((candidate) => text.startsWith(candidate.token, index))
+
+const canEncodeText = (encoding: EncodingIndex, text: string) => {
 	let index = 0
 	while (index < text.length) {
 		const codePoint = text.codePointAt(index)
@@ -63,60 +71,67 @@ const canEncodeText = (candidates: ReadonlyMap<string, readonly EncodingCandidat
 			break
 		}
 		const character = String.fromCodePoint(codePoint)
-		const match = candidates.get(character)?.find((candidate) => text.startsWith(candidate.token, index))
-		if (match === undefined) {
+		const compound = matchingCompound(encoding, text, index, character)
+		if (compound !== undefined) {
+			index += compound.token.length
+			continue
+		}
+		if (!encoding.byteByToken.has(character)) {
 			return false
 		}
-		index += match.token.length
+		index += character.length
 	}
 	return true
 }
 
-const encodeResult = (
-	definition: SingleByteCodepageDefinition,
-	candidates: ReadonlyMap<string, readonly EncodingCandidate[]>,
-	text: string,
-) => {
-	const bytes: number[] = []
+const encodeResult = (definition: SingleByteCodepageDefinition, encoding: EncodingIndex, text: string) => {
+	const bytes = new Uint8Array(text.length)
 	let index = 0
+	let outputIndex = 0
 	while (index < text.length) {
 		const codePoint = text.codePointAt(index)
 		if (codePoint === undefined) {
 			break
 		}
 		const character = String.fromCodePoint(codePoint)
-		const matches = candidates.get(character) ?? []
-		const match = matches.find((candidate) => text.startsWith(candidate.token, index))
-		if (match === undefined) {
+		const compound = matchingCompound(encoding, text, index, character)
+		const byte = compound?.byte ?? encoding.byteByToken.get(character)
+		if (byte === undefined) {
 			return Result.fail(new UnencodableCharacterError({ page: definition.page, index, character }))
 		}
-		bytes.push(match.byte)
-		index += match.token.length
+		bytes[outputIndex] = byte
+		outputIndex += 1
+		index += compound?.token.length ?? character.length
 	}
-	return Result.succeed(new Uint8Array(bytes))
+	return Result.succeed(outputIndex === bytes.length ? bytes : bytes.slice(0, outputIndex))
 }
 
 /**
  * Creates a lazy single-byte codec. Reverse indexes are built on first use.
  */
 export const singleByte = (definition: SingleByteCodepageDefinition) => {
-	const table = decodeTable(definition)
-	let reverse: ReadonlyMap<string, readonly EncodingCandidate[]> | undefined
-	const getCandidates = () => {
-		reverse ??= encodingCandidates(definition, table)
-		return reverse
+	let table: readonly string[] | undefined
+	let encoding: EncodingIndex | undefined
+	const getTable = () => {
+		table ??= decodeTable(definition)
+		return table
 	}
-	const encode = (text: string) => Effect.fromResult(encodeResult(definition, getCandidates(), text))
+	const getEncoding = () => {
+		encoding ??= encodingIndex(definition, getTable())
+		return encoding
+	}
+	const encode = (text: string) => Effect.fromResult(encodeResult(definition, getEncoding(), text))
 
 	return Object.freeze({
 		page: definition.page,
 		name: definition.name,
 		encode,
-		canEncode: (text: string) => canEncodeText(getCandidates(), text),
+		canEncode: (text: string) => canEncodeText(getEncoding(), text),
 		decode: (bytes: Uint8Array) => {
+			const characters = getTable()
 			let text = ''
 			for (const byte of bytes) {
-				text += table[byte] ?? REPLACEMENT_CHARACTER
+				text += characters[byte] ?? REPLACEMENT_CHARACTER
 			}
 			return text
 		},

@@ -2,6 +2,7 @@ import type { Root } from '@piqy/epos-ast'
 import { CodepageNotLoadedError, UnencodableCharacterError, codepageLayer } from '@piqy/epos-codepages'
 import { page000 } from '@piqy/epos-codepages/pages/page-000'
 import { page019 } from '@piqy/epos-codepages/pages/page-019'
+import { page041 } from '@piqy/epos-codepages/pages/page-041'
 import { StandardCodepagesLayer } from '@piqy/epos-codepages/presets/standard'
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, Stream } from 'effect'
@@ -20,12 +21,44 @@ const statefulTree = {
 	],
 } satisfies Root
 
+const expectedStatefulBytes = Uint8Array.of(
+	0x1b,
+	0x40,
+	0x1b,
+	0x61,
+	0x01,
+	0x1b,
+	0x7b,
+	0x00,
+	0x63,
+	0x65,
+	0x6e,
+	0x74,
+	0x65,
+	0x72,
+	0x1b,
+	0x61,
+	0x00,
+	0x6c,
+	0x65,
+	0x66,
+	0x74,
+)
+
+const expectedStatefulChunks = [
+	Uint8Array.of(0x1b, 0x40),
+	Uint8Array.of(0x1b, 0x61, 0x01, 0x1b, 0x7b, 0x00, 0x63, 0x65, 0x6e, 0x74, 0x65, 0x72),
+	Uint8Array.of(0x1b, 0x61, 0x00, 0x6c, 0x65, 0x66, 0x74),
+]
+
 describe('encoder execution', () => {
 	it.effect(
-		'isolates mutable printer state between concurrent executions',
+		'isolates mutable printer state between concurrent executions of one Effect',
 		Effect.fn(function* () {
-			const [first, second] = yield* Effect.all([encode(statefulTree), encode(statefulTree)], { concurrency: 'unbounded' })
-			expect(first).toStrictEqual(second)
+			const program = encode(statefulTree)
+			const [first, second] = yield* Effect.all([program, program], { concurrency: 'unbounded' })
+			expect(first).toStrictEqual(expectedStatefulBytes)
+			expect(second).toStrictEqual(expectedStatefulBytes)
 		}, Effect.provide(StandardCodepagesLayer)),
 	)
 
@@ -42,6 +75,41 @@ describe('encoder execution', () => {
 			if (error instanceof InvalidNodeError) {
 				expect(error.nodeType).toBe('barcode')
 			}
+		}, Effect.provide(StandardCodepagesLayer)),
+	)
+
+	it.effect(
+		'encodes a configured CODE39 barcode as ESC/POS bytes',
+		Effect.fn(function* () {
+			const bytes = yield* encode({
+				type: 'root',
+				children: [{ type: 'barcode', format: 'CODE39', data: 'ABC', width: 2, height: 40, hri: 'below', hriFont: 'B' }],
+			})
+			expect(bytes).toStrictEqual(
+				Uint8Array.of(
+					0x1b,
+					0x40,
+					0x1d,
+					0x77,
+					0x02,
+					0x1d,
+					0x68,
+					0x28,
+					0x1d,
+					0x48,
+					0x02,
+					0x1d,
+					0x66,
+					0x01,
+					0x1d,
+					0x6b,
+					0x45,
+					0x03,
+					0x41,
+					0x42,
+					0x43,
+				),
+			)
 		}, Effect.provide(StandardCodepagesLayer)),
 	)
 
@@ -88,34 +156,48 @@ describe('encoder execution', () => {
 	)
 
 	it.effect(
-		'selects loaded pages automatically by default',
+		'encodes long text with a country substitution without per-character output chunks',
 		Effect.fn(function* () {
-			const automatic = encode({ type: 'root', children: [{ type: 'text', value: 'é€é' }] })
-			const explicit = encode({
+			const value = `${'a'.repeat(100_000)}é`
+			const bytes = yield* encode({
 				type: 'root',
-				children: [
-					{ type: 'text', value: 'é', codepage: 0 },
-					{ type: 'text', value: '€é', codepage: 19 },
-				],
-			})
-			const [automaticBytes, explicitBytes] = yield* Effect.all([automatic, explicit]).pipe(
-				Effect.provide(codepageLayer([page000, page019])),
-			)
-			expect(automaticBytes).toStrictEqual(explicitBytes)
+				children: [{ type: 'text', value, codepage: 0, country: 'france' }],
+			}).pipe(Effect.provide(codepageLayer([page000])))
+			expect(bytes).toHaveLength(value.length + 11)
+			expect(bytes.subarray(0, 11)).toStrictEqual(Uint8Array.of(0x1b, 0x40, 0x1b, 0x61, 0x00, 0x1b, 0x7b, 0x00, 0x1b, 0x52, 0x01))
+			expect(bytes.at(-1)).toBe(0x7b)
 		}),
 	)
 
 	it.effect(
-		'sends a configured start page after printer initialization',
+		'keeps compound code-page tokens next to country substitutions',
+		Effect.fn(function* () {
+			const bytes = yield* encode({
+				type: 'root',
+				children: [{ type: 'text', value: '$لا', codepage: 41, country: 'usa' }],
+			}).pipe(Effect.provide(codepageLayer([page041])))
+			expect(bytes).toStrictEqual(Uint8Array.of(0x1b, 0x40, 0x1b, 0x61, 0x00, 0x1b, 0x7b, 0x00, 0x1b, 0x74, 0x29, 0x24, 0x8b))
+		}),
+	)
+
+	it.effect(
+		'selects loaded pages automatically by default',
+		Effect.fn(function* () {
+			const bytes = yield* encode({ type: 'root', children: [{ type: 'text', value: 'é€é' }] }).pipe(
+				Effect.provide(codepageLayer([page000, page019])),
+			)
+			expect(bytes).toStrictEqual(Uint8Array.of(0x1b, 0x40, 0x1b, 0x61, 0x00, 0x1b, 0x7b, 0x00, 0x82, 0x1b, 0x74, 0x13, 0xd5, 0x82))
+		}),
+	)
+
+	it.effect(
+		'sends a configured start page immediately after printer initialization',
 		Effect.fn(function* () {
 			const bytes = yield* encode(
 				{ type: 'root', children: [{ type: 'text', value: '€' }] },
 				{ automaticCodepage: false, codepage: 19 },
 			).pipe(Effect.provide(codepageLayer([page019])))
-			const selectedPages = Array.from(bytes.entries()).flatMap(([index, byte]) =>
-				byte === 0x1b && bytes[index + 1] === 0x74 ? [bytes[index + 2]] : [],
-			)
-			expect(selectedPages).toContain(19)
+			expect(bytes).toStrictEqual(Uint8Array.of(0x1b, 0x40, 0x1b, 0x74, 0x13, 0x1b, 0x61, 0x00, 0x1b, 0x7b, 0x00, 0xd5))
 		}),
 	)
 
@@ -141,7 +223,8 @@ describe('encoder execution', () => {
 			const stream = encodeStream(Stream.fromIterable(statefulTree.children))
 			const first = yield* Stream.runCollect(stream)
 			const second = yield* Stream.runCollect(stream)
-			expect(first).toStrictEqual(second)
+			expect([...first]).toStrictEqual(expectedStatefulChunks)
+			expect([...second]).toStrictEqual(expectedStatefulChunks)
 		}, Effect.provide(StandardCodepagesLayer)),
 	)
 })
