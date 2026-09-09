@@ -1,5 +1,12 @@
 # @piqy/epos-codepages
 
+## 0.2.1
+
+### Patch Changes
+
+- 236285b: Remove the `Array.prototype.toSorted` requirement from the available codepages preset. Codepages remain sorted by page number.
+- 01dc0f5: Restore support for embedded `\n` in text nodes. Line feeds encode as `0x0A` with explicit and automatic codepage selection.
+
 ## 0.2.0
 
 ### Minor Changes

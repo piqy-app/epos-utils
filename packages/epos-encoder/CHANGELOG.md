@@ -1,5 +1,14 @@
 # @piqy/epos-encoder
 
+## 0.3.1
+
+### Patch Changes
+
+- 01dc0f5: Restore support for embedded `\n` in text nodes. Line feeds encode as `0x0A` with explicit and automatic codepage selection.
+- Updated dependencies [236285b]
+- Updated dependencies [01dc0f5]
+  - @piqy/epos-codepages@0.2.1
+
 ## 0.3.0
 
 ### Minor Changes
