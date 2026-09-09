@@ -52,6 +52,8 @@ const encodingIndex = (definition: SingleByteCodepageDefinition, table: readonly
 		}
 	}
 
+	// Preserve embedded line feeds when encoding and planning text
+	add('\n', 0x0a)
 	for (let byte = PRINTABLE_ASCII_START; byte <= PRINTABLE_ASCII_END; byte++) {
 		add(table[byte], byte)
 	}
