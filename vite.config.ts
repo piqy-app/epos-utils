@@ -81,7 +81,7 @@ export default defineConfig({
 		include: ['packages/*/tests/**/*.test.ts'],
 	},
 	fmt: {
-		ignorePatterns: ignoredToolDirectories,
+		ignorePatterns: [...ignoredToolDirectories, '**/CHANGELOG.md'],
 		printWidth: 140,
 		semi: false,
 		singleQuote: true,
