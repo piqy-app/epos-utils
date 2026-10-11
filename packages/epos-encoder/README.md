@@ -73,10 +73,11 @@ Both `encode` and `encodeStream` are available from `@piqy/epos-encoder`.
 The returned Effect or Stream fails when:
 
 - a required character table was not provided,
-- a character is not available in the selected tables, or
+- a character is not available in the selected tables and `unsupportedCharacter` is `'error'` (the default),
+- the `unsupportedCharacter` replacement is not available in the selected tables, or
 - a receipt node contains invalid data.
 
-The encoder does not replace unsupported text without an error.
+With the default `unsupportedCharacter: 'error'`, the encoder does not replace unsupported text. Error indexes refer to the original text node.
 
 ## Unsupported characters
 
@@ -87,5 +88,7 @@ encode(receipt, { unsupportedCharacter: { replace: '?' } })
 ```
 
 The encoder replaces each complete emoji sequence with one replacement. For example, `👍🏽`, `👨‍👩‍👧`, `🇩🇪`, and `1️⃣` each become one `?`. This works the same on all runtimes, including React Native with Hermes. Use `{ replace: '' }` to remove the characters. If the replacement itself cannot be encoded, the encoding fails.
+
+Characters of the active international character set (`country`) count as supported, also with automatic page selection. For example, `₩` with `country: 'korea'` prints without a page change.
 
 In all modes, the encoder removes an emoji variation selector (`U+FE0F` or `U+FE0E`) after a supported character. For example, `©️` prints as `©`.

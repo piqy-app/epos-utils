@@ -21,11 +21,21 @@ export namespace CodepageRegistry {
 
 export class CodepageRegistry extends Context.Service<CodepageRegistry, CodepageRegistry.Service>()('epos-codepages/CodepageRegistry') {}
 
-const tokenLengthAt = (codepage: Codepage, text: string, index: number, character: string) => {
+// RETURN TYPE: the predicate narrows an optional token length to a number for the caller
+const isTokenLength = (text: string, index: number, tokenLength: number | undefined): tokenLength is number =>
+	tokenLength !== undefined && Number.isSafeInteger(tokenLength) && tokenLength > 0 && index + tokenLength <= text.length
+
+/** Returns the UTF-16 length of the next token at index that the page can encode. */
+export const codepageTokenLengthAt = (codepage: Codepage, text: string, index: number) => {
 	const tokenLength = codepage.tokenLengthAt?.(text, index)
-	if (tokenLength !== undefined && Number.isSafeInteger(tokenLength) && tokenLength > 0 && index + tokenLength <= text.length) {
+	if (isTokenLength(text, index, tokenLength)) {
 		return tokenLength
 	}
+	const codePoint = text.codePointAt(index)
+	if (codePoint === undefined) {
+		return undefined
+	}
+	const character = String.fromCodePoint(codePoint)
 	return codepage.canEncode(character) ? character.length : undefined
 }
 
@@ -79,16 +89,23 @@ export const makeCodepageRegistry = Effect.fn(function* (codepages: readonly Cod
 			if (codePoint === undefined) {
 				break
 			}
-			const character = String.fromCodePoint(codePoint)
 			let selected = currentCodepage
-			let selectedTokenLength = selected === undefined ? undefined : tokenLengthAt(selected, text, index, character)
+			let selectedTokenLength = selected === undefined ? undefined : codepageTokenLengthAt(selected, text, index)
 			if (selectedTokenLength === undefined) {
+				// keep the current page for a token that every page can print
+				const pageIndependentLength = options.pageIndependentTokenLengthAt?.(text, index)
+				if (isTokenLength(text, index, pageIndependentLength)) {
+					selected = currentCodepage ?? byPreference[0]
+					selectedTokenLength = pageIndependentLength
+				}
+			}
+			if (selected === undefined || selectedTokenLength === undefined) {
 				selected = undefined
 				for (const codepage of byPreference) {
 					if (codepage === currentCodepage) {
 						continue
 					}
-					const candidateTokenLength = tokenLengthAt(codepage, text, index, character)
+					const candidateTokenLength = codepageTokenLengthAt(codepage, text, index)
 					if (candidateTokenLength !== undefined) {
 						selected = codepage
 						selectedTokenLength = candidateTokenLength
@@ -97,7 +114,7 @@ export const makeCodepageRegistry = Effect.fn(function* (codepages: readonly Cod
 				}
 			}
 			if (selected === undefined || selectedTokenLength === undefined) {
-				return yield* new NoCodepageSupportsCharacterError({ index, character, pages: pageNumbers })
+				return yield* new NoCodepageSupportsCharacterError({ index, character: String.fromCodePoint(codePoint), pages: pageNumbers })
 			}
 			if (segmentPage !== selected.page) {
 				if (segmentPage !== undefined) {

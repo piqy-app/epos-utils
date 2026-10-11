@@ -14,6 +14,17 @@ const isExtender = (codePoint: number) =>
 	codePoint === 0x20e3 ||
 	(codePoint >= 0xe0020 && codePoint <= 0xe007f)
 
+// emoji that a zero width joiner connects; other characters after a joiner start a new cluster
+const isEmojiContinuation = (codePoint: number) =>
+	codePoint === 0xa9 ||
+	codePoint === 0xae ||
+	(codePoint >= 0x2000 && codePoint <= 0x2bff) ||
+	codePoint === 0x3030 ||
+	codePoint === 0x303d ||
+	codePoint === 0x3297 ||
+	codePoint === 0x3299 ||
+	(codePoint >= 0x1f000 && codePoint <= 0x1faff)
+
 const codePointLength = (codePoint: number) => (codePoint > 0xffff ? 2 : 1)
 
 /**
@@ -30,8 +41,12 @@ const clusterEnd = (text: string, start: number) => {
 		const codePoint = text.codePointAt(index) ?? 0
 		if (isExtender(codePoint)) {
 			index += codePointLength(codePoint)
-		} else if (codePoint === ZERO_WIDTH_JOINER && index + 1 < text.length) {
-			index += 1 + codePointLength(text.codePointAt(index + 1) ?? 0)
+		} else if (codePoint === ZERO_WIDTH_JOINER) {
+			index += 1
+			const next = text.codePointAt(index)
+			if (next !== undefined && isEmojiContinuation(next)) {
+				index += codePointLength(next)
+			}
 		} else {
 			break
 		}
@@ -47,6 +62,7 @@ export interface TextEdit {
 
 /**
  * Maps an index in repaired text to the original text. An index in inserted replacement text maps to the start of the replaced cluster.
+ * Each edit start refers to the text after all earlier edits.
  */
 export const sourcePosition = (edits: readonly TextEdit[], index: number) => {
 	let sourceIndex = index
@@ -67,37 +83,62 @@ export const sourcePosition = (edits: readonly TextEdit[], index: number) => {
 }
 
 /**
- * Repairs the cluster that contains the unsupported character at errorIndex.
+ * Repairs the cluster that failed at errorIndex, then every later cluster that supportedTokenLengthAt cannot encode.
+ * One pass repairs all of them, so text with many emoji does not need one encoding pass per emoji.
  * Variation selectors after a supported character are removed. Other clusters are replaced when a replacement is set.
+ * Returns undefined when the failed cluster cannot be repaired.
  */
-export const repairUnsupportedText = (text: string, errorIndex: number, unsupportedCharacter: UnsupportedCharacter) => {
+export const repairUnsupportedText = (
+	text: string,
+	errorIndex: number,
+	supportedTokenLengthAt: (text: string, index: number) => number | undefined,
+	unsupportedCharacter: UnsupportedCharacter,
+) => {
+	const edits: TextEdit[] = []
+	let output = ''
+	let copied = 0
+	const repair = (start: number, end: number, failedIndex: number) => {
+		const baseEnd = start + codePointLength(text.codePointAt(start) ?? 0)
+		let onlySelectors = failedIndex >= baseEnd
+		for (let index = baseEnd; onlySelectors && index < end;) {
+			const codePoint = text.codePointAt(index) ?? 0
+			onlySelectors = isVariationSelector(codePoint)
+			index += codePointLength(codePoint)
+		}
+		if (!onlySelectors && unsupportedCharacter === 'error') {
+			return false
+		}
+		const editStart = onlySelectors ? baseEnd : start
+		const replacement = onlySelectors || unsupportedCharacter === 'error' ? '' : unsupportedCharacter.replace
+		output += text.slice(copied, editStart)
+		edits.push({ start: output.length, removed: end - editStart, inserted: replacement.length })
+		output += replacement
+		copied = end
+		return true
+	}
+
 	let start = 0
 	let end = clusterEnd(text, start)
 	while (end <= errorIndex && end < text.length) {
 		start = end
 		end = clusterEnd(text, start)
 	}
-	const baseEnd = start + codePointLength(text.codePointAt(start) ?? 0)
-	let editStart = start
-	let replacement: string | undefined
-	if (errorIndex >= baseEnd) {
-		let onlySelectors = true
-		for (let index = baseEnd; index < end;) {
-			const codePoint = text.codePointAt(index) ?? 0
-			onlySelectors &&= isVariationSelector(codePoint)
-			index += codePointLength(codePoint)
-		}
-		if (onlySelectors) {
-			editStart = baseEnd
-			replacement = ''
+	if (!repair(start, end, errorIndex)) {
+		return undefined
+	}
+	let index = end
+	while (index < text.length) {
+		const clusterStart = index
+		const clusterStop = clusterEnd(text, clusterStart)
+		while (index < clusterStop) {
+			const tokenLength = supportedTokenLengthAt(text, index)
+			if (tokenLength === undefined) {
+				repair(clusterStart, clusterStop, index)
+				index = clusterStop
+				break
+			}
+			index += tokenLength
 		}
 	}
-	if (replacement === undefined) {
-		if (unsupportedCharacter === 'error') {
-			return undefined
-		}
-		replacement = unsupportedCharacter.replace
-	}
-	const edit: TextEdit = { start: editStart, removed: end - editStart, inserted: replacement.length }
-	return { text: text.slice(0, editStart) + replacement + text.slice(end), edit }
+	return { text: output + text.slice(copied), edits }
 }

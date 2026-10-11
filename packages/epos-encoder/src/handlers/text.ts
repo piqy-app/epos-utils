@@ -1,5 +1,11 @@
 import { type Break, type Country, type Tab, type Text } from '@piqy/epos-ast'
-import { type Codepage, CodepageNotLoadedError, NoCodepageSupportsCharacterError, UnencodableCharacterError } from '@piqy/epos-codepages'
+import {
+	type Codepage,
+	CodepageNotLoadedError,
+	codepageTokenLengthAt,
+	NoCodepageSupportsCharacterError,
+	UnencodableCharacterError,
+} from '@piqy/epos-codepages'
 import { Effect, Result } from 'effect'
 
 import { COUNTRY_CODES, hasCountryByte, matchCountryEncoding } from '../charset.js'
@@ -122,7 +128,11 @@ const encodeTextWithCountry = Effect.fn(function* (
 const encodePages = Effect.fn(function* (value: string, codepage: number | undefined, country: Country, ctx: EncoderContext) {
 	const segments =
 		codepage === undefined && ctx.options.automaticCodepage
-			? yield* ctx.codepages.plan(value, { currentPage: ctx.codepage, usedPages: ctx.usedCodepages })
+			? yield* ctx.codepages.plan(value, {
+					currentPage: ctx.codepage,
+					usedPages: ctx.usedCodepages,
+					pageIndependentTokenLengthAt: (text, index) => matchCountryEncoding(text, index, country)?.token.length,
+				})
 			: [{ page: codepage ?? ctx.codepage, text: value }]
 	const encoded: { readonly page: number; readonly bytes: Uint8Array }[] = []
 	let sourceIndex = 0
@@ -131,6 +141,25 @@ const encodePages = Effect.fn(function* (value: string, codepage: number | undef
 		sourceIndex += segment.text.length
 	}
 	return encoded
+})
+
+/** Returns a check for tokens that the country table or one of the usable pages can encode. */
+const makeSupportedTokenLengthAt = Effect.fn(function* (codepage: number | undefined, country: Country, ctx: EncoderContext) {
+	const pageNumbers = codepage === undefined && ctx.options.automaticCodepage ? ctx.codepages.pages : [codepage ?? ctx.codepage]
+	const pages = yield* Effect.forEach(pageNumbers, (page) => ctx.codepages.resolve(page))
+	return (text: string, index: number) => {
+		const countryEncoding = matchCountryEncoding(text, index, country)
+		if (countryEncoding !== undefined) {
+			return countryEncoding.token.length
+		}
+		for (const page of pages) {
+			const tokenLength = codepageTokenLengthAt(page, text, index)
+			if (tokenLength !== undefined) {
+				return tokenLength
+			}
+		}
+		return undefined
+	}
 })
 
 /**
@@ -157,19 +186,22 @@ export const text: Handler<Text> = Effect.fn(function* (node, ctx) {
 	const country = ctx.country ?? 'usa'
 	let value = node.value
 	const edits: TextEdit[] = []
+	let supportedTokenLengthAt: ((text: string, index: number) => number | undefined) | undefined
 	let result = yield* Effect.result(encodePages(value, node.codepage, country, ctx))
-	// repair one unsupported cluster at a time, then encode again from a clean state
+	// repair unsupported clusters, then encode again from a clean state. Usually one pass repairs all of them,
+	// but a country-table conflict is found only by encoding
 	while (Result.isFailure(result) && !(result.failure instanceof CodepageNotLoadedError)) {
 		// a failure in inserted replacement text cannot be repaired, so each repair consumes original text
 		if (sourcePosition(edits, result.failure.index).inserted) {
 			break
 		}
-		const repaired = repairUnsupportedText(value, result.failure.index, ctx.options.unsupportedCharacter)
+		supportedTokenLengthAt ??= yield* makeSupportedTokenLengthAt(node.codepage, country, ctx)
+		const repaired = repairUnsupportedText(value, result.failure.index, supportedTokenLengthAt, ctx.options.unsupportedCharacter)
 		if (repaired === undefined) {
 			break
 		}
 		value = repaired.text
-		edits.push(repaired.edit)
+		edits.push(...repaired.edits)
 		result = yield* Effect.result(encodePages(value, node.codepage, country, ctx))
 	}
 	if (Result.isFailure(result) && edits.length > 0) {

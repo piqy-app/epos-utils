@@ -20,6 +20,11 @@ export interface CodepageSegment {
 export interface PlanTextOptions {
 	readonly currentPage?: number
 	readonly usedPages?: ReadonlySet<number>
+	/**
+	 * Returns the positive UTF-16 length of a token at index that every page can print, for example an
+	 * international character set substitution. Planning then keeps the current page for this token.
+	 */
+	readonly pageIndependentTokenLengthAt?: (text: string, index: number) => number | undefined
 }
 
 export interface SingleByteCodepageDefinition {
