@@ -14,11 +14,46 @@ const isExtender = (codePoint: number) =>
 	codePoint === 0x20e3 ||
 	(codePoint >= 0xe0020 && codePoint <= 0xe007f)
 
-// symbols and pictographs that a zero width joiner connects; other characters after a joiner start a new cluster
-const isEmojiContinuation = (codePoint: number) =>
-	(codePoint >= 0x2600 && codePoint <= 0x27bf) ||
-	(codePoint >= 0x2b00 && codePoint <= 0x2bff) ||
-	(codePoint >= 0x1f000 && codePoint <= 0x1faff)
+// Extended_Pictographic ranges outside the main emoji blocks, from Unicode emoji-data.txt
+const PICTOGRAPHIC_RANGES = [
+	[0xa9, 0xa9],
+	[0xae, 0xae],
+	[0x203c, 0x203c],
+	[0x2049, 0x2049],
+	[0x2122, 0x2122],
+	[0x2139, 0x2139],
+	[0x2194, 0x2199],
+	[0x21a9, 0x21aa],
+	[0x231a, 0x231b],
+	[0x2328, 0x2328],
+	[0x2388, 0x2388],
+	[0x23cf, 0x23cf],
+	[0x23e9, 0x23f3],
+	[0x23f8, 0x23fa],
+	[0x24c2, 0x24c2],
+	[0x25aa, 0x25ab],
+	[0x25b6, 0x25b6],
+	[0x25c0, 0x25c0],
+	[0x25fb, 0x25fe],
+	[0x2600, 0x27bf],
+	[0x2934, 0x2935],
+	[0x2b05, 0x2b07],
+	[0x2b1b, 0x2b1c],
+	[0x2b50, 0x2b50],
+	[0x2b55, 0x2b55],
+	[0x3030, 0x3030],
+	[0x303d, 0x303d],
+	[0x3297, 0x3297],
+	[0x3299, 0x3299],
+] as const
+
+// pictographs that a zero width joiner connects; other characters after a joiner start a new cluster
+const isPictographic = (codePoint: number) => {
+	if (codePoint >= 0x1f000) {
+		return codePoint <= 0x1fffd && !isRegionalIndicator(codePoint) && !(codePoint >= 0x1f3fb && codePoint <= 0x1f3ff)
+	}
+	return PICTOGRAPHIC_RANGES.some(([first, last]) => codePoint >= first && codePoint <= last)
+}
 
 const codePointLength = (codePoint: number) => (codePoint > 0xffff ? 2 : 1)
 
@@ -39,7 +74,7 @@ const clusterEnd = (text: string, start: number) => {
 		} else if (codePoint === ZERO_WIDTH_JOINER) {
 			index += 1
 			const next = text.codePointAt(index)
-			if (next !== undefined && isEmojiContinuation(next)) {
+			if (next !== undefined && isPictographic(next)) {
 				index += codePointLength(next)
 			}
 		} else {
@@ -123,7 +158,7 @@ export const repairUnsupportedText = (
 	}
 	let index = end
 	while (index < text.length) {
-		const clusterStart = index
+		let clusterStart = index
 		let clusterStop = clusterEnd(text, clusterStart)
 		while (index < clusterStop) {
 			const tokenLength = supportedTokenLengthAt(text, index)
@@ -134,9 +169,9 @@ export const repairUnsupportedText = (
 			}
 			index += tokenLength
 			if (index > clusterStop) {
-				// a compound token crosses the cluster end, so its last character continues the cluster
-				const lastStart = index - (index - 2 >= clusterStart && (text.codePointAt(index - 2) ?? 0) > 0xffff ? 2 : 1)
-				clusterStop = clusterEnd(text, lastStart)
+				// a compound token crosses the cluster end, so the cluster of its last character continues after it
+				clusterStart = index - (index - 2 >= clusterStart && (text.codePointAt(index - 2) ?? 0) > 0xffff ? 2 : 1)
+				clusterStop = clusterEnd(text, clusterStart)
 			}
 		}
 	}

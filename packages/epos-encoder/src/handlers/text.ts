@@ -151,10 +151,23 @@ const makeSupportedTokenLengthAt = Effect.fn(function* (codepage: number | undef
 	const pageNumbers = codepage === undefined && ctx.options.automaticCodepage ? ctx.codepages.pages : [codepage ?? ctx.codepage]
 	const countryBytes = countryTableBytes(country)
 	const countryTokenLength = countryTokenLengthAt(country)
-	const pages = (yield* Effect.forEach(pageNumbers, (page) => ctx.codepages.resolve(page))).map((page) => ({
-		page,
-		conflicts: new Set(countryBytes.map((byte) => page.decode(Uint8Array.of(byte)))),
-	}))
+	// a page character conflicts when its encoded byte is a byte that the country table reassigns.
+	// Aliases that encode to such a byte are not found here, so encoding reports them one at a time
+	const pages = yield* Effect.forEach(
+		pageNumbers,
+		Effect.fnUntraced(function* (pageNumber) {
+			const page = yield* ctx.codepages.resolve(pageNumber)
+			const conflicts = new Set<string>()
+			for (const byte of countryBytes) {
+				const character = page.decode(Uint8Array.of(byte))
+				const encoded = yield* Effect.result(page.encode(character))
+				if (Result.isSuccess(encoded) && hasCountryByte(encoded.success, country)) {
+					conflicts.add(character)
+				}
+			}
+			return { page, conflicts }
+		}),
+	)
 	return (text: string, index: number) => {
 		let longest = countryTokenLength(text, index)
 		for (const { page, conflicts } of pages) {
