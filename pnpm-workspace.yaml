@@ -6,9 +6,12 @@ allowBuilds:
   msgpackr-extract: false
 
 catalog:
-  effect: ^4.0.0-rc.110
-  vite: npm:@voidzero-dev/vite-plus-core@0.3.0
-  vite-plus: 0.3.0
+  effect: ^4.0.3
+  vite: npm:@voidzero-dev/vite-plus-core@1.1.0
+  vite-plus: 1.1.0
+
+minimumReleaseAgeExclude:
+  - effect@4.0.3
 
 overrides:
   vite@*: 'catalog:'

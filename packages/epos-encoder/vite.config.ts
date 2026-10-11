@@ -7,7 +7,7 @@ export default defineConfig({
 		},
 		unbundle: true,
 		dts: {
-			tsgo: true,
+			generator: 'tsgo',
 		},
 		exports: true,
 		publint: {

@@ -20,13 +20,13 @@
   },
   "devDependencies": {
     "@arethetypeswrong/core": "0.18.5",
-    "@changesets/cli": "3.0.1",
-    "@effect/tsgo": "0.38.0",
-    "@effect/vitest": "4.0.0-rc.110",
-    "@oxlint/plugins": "1.80.0",
-    "@types/node": "^26.1.1",
+    "@changesets/cli": "3.0.3",
+    "@effect/tsgo": "0.51.1",
+    "@effect/vitest": "4.0.3",
+    "@oxlint/plugins": "1.87.0",
+    "@types/node": "^26.6.5",
     "effect": "catalog:",
-    "publint": "^0.3.24",
+    "publint": "^0.3.25",
     "typescript": "^7.0.2",
     "vite": "catalog:",
     "vite-plus": "catalog:"
@@ -34,5 +34,5 @@
   "engines": {
     "node": ">=22"
   },
-  "packageManager": "pnpm@11.24.0"
+  "packageManager": "pnpm@12.11.2"
 }
