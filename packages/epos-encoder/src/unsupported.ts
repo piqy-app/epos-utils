@@ -14,7 +14,7 @@ const isExtender = (codePoint: number) =>
 	codePoint === 0x20e3 ||
 	(codePoint >= 0xe0020 && codePoint <= 0xe007f)
 
-// Extended_Pictographic ranges outside the main emoji blocks, from Unicode emoji-data.txt
+// merged Extended_Pictographic ranges from Unicode 16.0 emoji-data.txt
 const PICTOGRAPHIC_RANGES = [
 	[0xa9, 0xa9],
 	[0xae, 0xae],
@@ -35,7 +35,28 @@ const PICTOGRAPHIC_RANGES = [
 	[0x25b6, 0x25b6],
 	[0x25c0, 0x25c0],
 	[0x25fb, 0x25fe],
-	[0x2600, 0x27bf],
+	[0x2600, 0x2605],
+	[0x2607, 0x2612],
+	[0x2614, 0x2685],
+	[0x2690, 0x2705],
+	[0x2708, 0x2712],
+	[0x2714, 0x2714],
+	[0x2716, 0x2716],
+	[0x271d, 0x271d],
+	[0x2721, 0x2721],
+	[0x2728, 0x2728],
+	[0x2733, 0x2734],
+	[0x2744, 0x2744],
+	[0x2747, 0x2747],
+	[0x274c, 0x274c],
+	[0x274e, 0x274e],
+	[0x2753, 0x2755],
+	[0x2757, 0x2757],
+	[0x2763, 0x2767],
+	[0x2795, 0x2797],
+	[0x27a1, 0x27a1],
+	[0x27b0, 0x27b0],
+	[0x27bf, 0x27bf],
 	[0x2934, 0x2935],
 	[0x2b05, 0x2b07],
 	[0x2b1b, 0x2b1c],
@@ -45,15 +66,38 @@ const PICTOGRAPHIC_RANGES = [
 	[0x303d, 0x303d],
 	[0x3297, 0x3297],
 	[0x3299, 0x3299],
+	[0x1f000, 0x1f0ff],
+	[0x1f10d, 0x1f10f],
+	[0x1f12f, 0x1f12f],
+	[0x1f16c, 0x1f171],
+	[0x1f17e, 0x1f17f],
+	[0x1f18e, 0x1f18e],
+	[0x1f191, 0x1f19a],
+	[0x1f1ad, 0x1f1e5],
+	[0x1f201, 0x1f20f],
+	[0x1f21a, 0x1f21a],
+	[0x1f22f, 0x1f22f],
+	[0x1f232, 0x1f23a],
+	[0x1f23c, 0x1f23f],
+	[0x1f249, 0x1f3fa],
+	[0x1f400, 0x1f53d],
+	[0x1f546, 0x1f64f],
+	[0x1f680, 0x1f6ff],
+	[0x1f774, 0x1f77f],
+	[0x1f7d5, 0x1f7ff],
+	[0x1f80c, 0x1f80f],
+	[0x1f848, 0x1f84f],
+	[0x1f85a, 0x1f85f],
+	[0x1f888, 0x1f88f],
+	[0x1f8ae, 0x1f8ff],
+	[0x1f90c, 0x1f93a],
+	[0x1f93c, 0x1f945],
+	[0x1f947, 0x1faff],
+	[0x1fc00, 0x1fffd],
 ] as const
 
 // pictographs that a zero width joiner connects; other characters after a joiner start a new cluster
-const isPictographic = (codePoint: number) => {
-	if (codePoint >= 0x1f000) {
-		return codePoint <= 0x1fffd && !isRegionalIndicator(codePoint) && !(codePoint >= 0x1f3fb && codePoint <= 0x1f3ff)
-	}
-	return PICTOGRAPHIC_RANGES.some(([first, last]) => codePoint >= first && codePoint <= last)
-}
+const isPictographic = (codePoint: number) => PICTOGRAPHIC_RANGES.some(([first, last]) => codePoint >= first && codePoint <= last)
 
 const codePointLength = (codePoint: number) => (codePoint > 0xffff ? 2 : 1)
 
@@ -168,9 +212,9 @@ export const repairUnsupportedText = (
 				break
 			}
 			index += tokenLength
-			if (index > clusterStop) {
-				// a compound token crosses the cluster end, so the cluster of its last character continues after it
-				clusterStart = index - (index - 2 >= clusterStart && (text.codePointAt(index - 2) ?? 0) > 0xffff ? 2 : 1)
+			// a compound token crosses the cluster end, so continue in the cluster that contains its last character
+			while (index > clusterStop) {
+				clusterStart = clusterStop
 				clusterStop = clusterEnd(text, clusterStart)
 			}
 		}
