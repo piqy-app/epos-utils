@@ -29,6 +29,7 @@
   "types": "./dist/index.d.mts",
   "exports": {
     ".": "./dist/index.mjs",
+    "./international": "./dist/international.mjs",
     "./pages/page-000": "./dist/pages/page-000.mjs",
     "./pages/page-001": "./dist/pages/page-001.mjs",
     "./pages/page-002": "./dist/pages/page-002.mjs",
@@ -109,6 +110,7 @@
     "prepublishOnly": "vp pack"
   },
   "dependencies": {
+    "@piqy/epos-ast": "workspace:^",
     "effect": "catalog:"
   },
   "engines": {

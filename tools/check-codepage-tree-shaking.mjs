@@ -22,6 +22,14 @@ const cases = [
 		maxGzipBytes: 32_000,
 	},
 	{
+		name: 'international',
+		entry: 'international.mjs',
+		imported: 'decodeCountryByte',
+		required: ['india-tamil'],
+		expectedPages: [],
+		maxGzipBytes: 2_000,
+	},
+	{
 		name: 'one-page',
 		entry: 'pages/page-019.mjs',
 		imported: 'page019',

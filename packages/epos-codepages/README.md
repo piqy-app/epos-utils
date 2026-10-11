@@ -40,6 +40,34 @@ import { StandardCodepagesLayer } from '@piqy/epos-codepages/presets/standard'
 
 Import one page or the smallest suitable preset when application size matters.
 
+## International character sets
+
+`ESC R n` selects an international character set. The character set changes some bytes below 0x80. For example, byte `0x5B` prints `Ä` when `germany` is selected. Bytes from 0x80 come from the selected code page.
+
+`@piqy/epos-codepages/international` contains these tables. `@piqy/epos-encoder` uses the same tables for text with a `country`.
+
+```ts
+import { countryFromCode, decodeCountryByte, decodeCountryText } from '@piqy/epos-codepages/international'
+import { page000 } from '@piqy/epos-codepages/pages/page-000'
+
+const country = countryFromCode(2) ?? 'usa' // 'germany'
+
+decodeCountryByte(0x5b, country) // 'Ä'
+decodeCountryByte(0x41, country) // 'A'
+decodeCountryByte(0x84, country) // undefined, because the code page defines this byte
+decodeCountryText(Uint8Array.of(0x47, 0x72, 0x7d, 0x7e, 0x65), country) // 'Grüße'
+
+const decodeByte = (byte: number) => decodeCountryByte(byte, country) ?? page000.decode(Uint8Array.of(byte))
+```
+
+- `countryFromCode(code)` returns the `Country` for code `n` of `ESC R n`. It returns `undefined` for a code without a character set, so that the application selects the fallback.
+- `decodeCountryByte(byte, country)` returns the character for a byte from 0x00 through 0x7F. A byte that the character set does not change returns its ASCII character, also a control character. It returns `undefined` for bytes from 0x80 and for numbers that are not bytes.
+- `decodeCountryText(bytes, country)` decodes a byte array in the same way. It replaces each byte from 0x80 with U+FFFD.
+- `countryCodes` contains the `ESC R n` code for each `Country`.
+- `countryCharacterTables` contains the bytes that each character set controls, also bytes that keep their ASCII character.
+
+Some bytes print more than one character. With `india-tamil`, byte `0x36` decodes to `கா`. The `Country` type comes from `@piqy/epos-ast`.
+
 ## Printer-defined pages
 
 Pages 254 and 255 do not have a fixed character mapping. Create a custom `Codepage` when a printer defines either page.

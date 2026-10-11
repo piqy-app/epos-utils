@@ -13,6 +13,7 @@ export default defineConfig({
 	pack: {
 		entry: {
 			index: 'src/index.ts',
+			international: 'src/international.ts',
 			...sourceEntries('src/pages', 'pages'),
 			...sourceEntries('src/presets', 'presets'),
 		},
