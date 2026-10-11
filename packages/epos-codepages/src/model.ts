@@ -21,8 +21,9 @@ export interface PlanTextOptions {
 	readonly currentPage?: number
 	readonly usedPages?: ReadonlySet<number>
 	/**
-	 * Returns the positive UTF-16 length of a token at index that every page can print, for example an
-	 * international character set substitution. Planning then keeps the current page for this token.
+	 * Returns the positive UTF-16 length from index to the end of a token that every page can print, for example an
+	 * international character set substitution. The token can start at or before index. Planning calls this only when
+	 * the current page cannot encode the text at index, and then keeps the current page.
 	 */
 	readonly pageIndependentTokenLengthAt?: (text: string, index: number) => number | undefined
 }

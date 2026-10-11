@@ -8,7 +8,7 @@ import {
 } from '@piqy/epos-codepages'
 import { Effect, Result } from 'effect'
 
-import { COUNTRY_CODES, hasCountryByte, matchCountryEncoding } from '../charset.js'
+import { COUNTRY_CODES, countryTableBytes, countryTokenLengthAt, hasCountryByte, matchCountryEncoding } from '../charset.js'
 import { concatAll, ESC, HT, hex, LF } from '../commands.js'
 import type { EncoderContext } from '../context.js'
 import type { Handler } from '../handlers.js'
@@ -131,7 +131,7 @@ const encodePages = Effect.fn(function* (value: string, codepage: number | undef
 			? yield* ctx.codepages.plan(value, {
 					currentPage: ctx.codepage,
 					usedPages: ctx.usedCodepages,
-					pageIndependentTokenLengthAt: (text, index) => matchCountryEncoding(text, index, country)?.token.length,
+					pageIndependentTokenLengthAt: countryTokenLengthAt(country),
 				})
 			: [{ page: codepage ?? ctx.codepage, text: value }]
 	const encoded: { readonly page: number; readonly bytes: Uint8Array }[] = []
@@ -143,22 +143,31 @@ const encodePages = Effect.fn(function* (value: string, codepage: number | undef
 	return encoded
 })
 
-/** Returns a check for tokens that the country table or one of the usable pages can encode. */
+/**
+ * Returns a check for the longest token that the country table or one of the usable pages can encode.
+ * A page token whose byte the country table reassigns is not supported.
+ */
 const makeSupportedTokenLengthAt = Effect.fn(function* (codepage: number | undefined, country: Country, ctx: EncoderContext) {
 	const pageNumbers = codepage === undefined && ctx.options.automaticCodepage ? ctx.codepages.pages : [codepage ?? ctx.codepage]
-	const pages = yield* Effect.forEach(pageNumbers, (page) => ctx.codepages.resolve(page))
+	const countryBytes = countryTableBytes(country)
+	const countryTokenLength = countryTokenLengthAt(country)
+	const pages = (yield* Effect.forEach(pageNumbers, (page) => ctx.codepages.resolve(page))).map((page) => ({
+		page,
+		conflicts: new Set(countryBytes.map((byte) => page.decode(Uint8Array.of(byte)))),
+	}))
 	return (text: string, index: number) => {
-		const countryEncoding = matchCountryEncoding(text, index, country)
-		if (countryEncoding !== undefined) {
-			return countryEncoding.token.length
-		}
-		for (const page of pages) {
+		let longest = countryTokenLength(text, index)
+		for (const { page, conflicts } of pages) {
 			const tokenLength = codepageTokenLengthAt(page, text, index)
-			if (tokenLength !== undefined) {
-				return tokenLength
+			if (
+				tokenLength !== undefined &&
+				(longest === undefined || tokenLength > longest) &&
+				!conflicts.has(text.slice(index, index + tokenLength))
+			) {
+				longest = tokenLength
 			}
 		}
-		return undefined
+		return longest
 	}
 })
 
@@ -201,7 +210,9 @@ export const text: Handler<Text> = Effect.fn(function* (node, ctx) {
 			break
 		}
 		value = repaired.text
-		edits.push(...repaired.edits)
+		for (const edit of repaired.edits) {
+			edits.push(edit)
+		}
 		result = yield* Effect.result(encodePages(value, node.codepage, country, ctx))
 	}
 	if (Result.isFailure(result) && edits.length > 0) {

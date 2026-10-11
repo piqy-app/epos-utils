@@ -80,6 +80,7 @@ export const makeCodepageRegistry = Effect.fn(function* (codepages: readonly Cod
 				byPreference.push(codepage)
 			}
 		}
+		const { pageIndependentTokenLengthAt } = options
 		const segments: { page: number; text: string }[] = []
 		let index = 0
 		let segmentStart = 0
@@ -91,9 +92,9 @@ export const makeCodepageRegistry = Effect.fn(function* (codepages: readonly Cod
 			}
 			let selected = currentCodepage
 			let selectedTokenLength = selected === undefined ? undefined : codepageTokenLengthAt(selected, text, index)
-			if (selectedTokenLength === undefined) {
+			if (selectedTokenLength === undefined && pageIndependentTokenLengthAt !== undefined) {
 				// keep the current page for a token that every page can print
-				const pageIndependentLength = options.pageIndependentTokenLengthAt?.(text, index)
+				const pageIndependentLength = pageIndependentTokenLengthAt(text, index)
 				if (isTokenLength(text, index, pageIndependentLength)) {
 					selected = currentCodepage ?? byPreference[0]
 					selectedTokenLength = pageIndependentLength

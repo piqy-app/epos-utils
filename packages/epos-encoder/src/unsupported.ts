@@ -14,15 +14,10 @@ const isExtender = (codePoint: number) =>
 	codePoint === 0x20e3 ||
 	(codePoint >= 0xe0020 && codePoint <= 0xe007f)
 
-// emoji that a zero width joiner connects; other characters after a joiner start a new cluster
+// symbols and pictographs that a zero width joiner connects; other characters after a joiner start a new cluster
 const isEmojiContinuation = (codePoint: number) =>
-	codePoint === 0xa9 ||
-	codePoint === 0xae ||
-	(codePoint >= 0x2000 && codePoint <= 0x2bff) ||
-	codePoint === 0x3030 ||
-	codePoint === 0x303d ||
-	codePoint === 0x3297 ||
-	codePoint === 0x3299 ||
+	(codePoint >= 0x2600 && codePoint <= 0x27bf) ||
+	(codePoint >= 0x2b00 && codePoint <= 0x2bff) ||
 	(codePoint >= 0x1f000 && codePoint <= 0x1faff)
 
 const codePointLength = (codePoint: number) => (codePoint > 0xffff ? 2 : 1)
@@ -85,7 +80,7 @@ export const sourcePosition = (edits: readonly TextEdit[], index: number) => {
 /**
  * Repairs the cluster that failed at errorIndex, then every later cluster that supportedTokenLengthAt cannot encode.
  * One pass repairs all of them, so text with many emoji does not need one encoding pass per emoji.
- * Variation selectors after a supported character are removed. Other clusters are replaced when a replacement is set.
+ * Variation selectors after supported text are removed. Other clusters are replaced when a replacement is set.
  * Returns undefined when the failed cluster cannot be repaired.
  */
 export const repairUnsupportedText = (
@@ -97,10 +92,10 @@ export const repairUnsupportedText = (
 	const edits: TextEdit[] = []
 	let output = ''
 	let copied = 0
+	// text from start to failedIndex is supported
 	const repair = (start: number, end: number, failedIndex: number) => {
-		const baseEnd = start + codePointLength(text.codePointAt(start) ?? 0)
-		let onlySelectors = failedIndex >= baseEnd
-		for (let index = baseEnd; onlySelectors && index < end;) {
+		let onlySelectors = failedIndex > start
+		for (let index = failedIndex; onlySelectors && index < end;) {
 			const codePoint = text.codePointAt(index) ?? 0
 			onlySelectors = isVariationSelector(codePoint)
 			index += codePointLength(codePoint)
@@ -108,7 +103,7 @@ export const repairUnsupportedText = (
 		if (!onlySelectors && unsupportedCharacter === 'error') {
 			return false
 		}
-		const editStart = onlySelectors ? baseEnd : start
+		const editStart = onlySelectors ? failedIndex : start
 		const replacement = onlySelectors || unsupportedCharacter === 'error' ? '' : unsupportedCharacter.replace
 		output += text.slice(copied, editStart)
 		edits.push({ start: output.length, removed: end - editStart, inserted: replacement.length })
@@ -129,7 +124,7 @@ export const repairUnsupportedText = (
 	let index = end
 	while (index < text.length) {
 		const clusterStart = index
-		const clusterStop = clusterEnd(text, clusterStart)
+		let clusterStop = clusterEnd(text, clusterStart)
 		while (index < clusterStop) {
 			const tokenLength = supportedTokenLengthAt(text, index)
 			if (tokenLength === undefined) {
@@ -138,6 +133,11 @@ export const repairUnsupportedText = (
 				break
 			}
 			index += tokenLength
+			if (index > clusterStop) {
+				// a compound token crosses the cluster end, so its last character continues the cluster
+				const lastStart = index - (index - 2 >= clusterStart && (text.codePointAt(index - 2) ?? 0) > 0xffff ? 2 : 1)
+				clusterStop = clusterEnd(text, lastStart)
+			}
 		}
 	}
 	return { text: output + text.slice(copied), edits }
