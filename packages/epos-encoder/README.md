@@ -77,3 +77,15 @@ The returned Effect or Stream fails when:
 - a receipt node contains invalid data.
 
 The encoder does not replace unsupported text without an error.
+
+## Unsupported characters
+
+Code pages do not contain emoji and many symbols. To print a replacement in place of these characters, set `unsupportedCharacter`:
+
+```ts
+encode(receipt, { unsupportedCharacter: { replace: '?' } })
+```
+
+The encoder replaces each complete emoji sequence with one replacement. For example, `👍🏽`, `👨‍👩‍👧`, `🇩🇪`, and `1️⃣` each become one `?`. This works the same on all runtimes, including React Native with Hermes. Use `{ replace: '' }` to remove the characters. If the replacement itself cannot be encoded, the encoding fails.
+
+In all modes, the encoder removes an emoji variation selector (`U+FE0F` or `U+FE0E`) after a supported character. For example, `©️` prints as `©`.
