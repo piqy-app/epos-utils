@@ -1,6 +1,6 @@
 {
   "name": "@piqy/epos-codepages",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "ESC/POS character tables for encoding and decoding printer text",
   "keywords": [
     "codepage",

@@ -1,5 +1,12 @@
 # @piqy/epos-codepages
 
+## 0.3.0
+
+### Minor Changes
+
+- 2b1ce11: Add the `pageIndependentTokenLengthAt` planning option for tokens that every page can print, for example international character set substitutions. Planning uses it when the current page cannot encode a character and then keeps the current page. Export `codepageTokenLengthAt` to check the token that one page can encode at an index.
+- 841cce0: Require the stable `effect` v4 release. The `effect` range changes from `^4.0.0-rc.110` to `^4.0.3`.
+
 ## 0.2.1
 
 ### Patch Changes

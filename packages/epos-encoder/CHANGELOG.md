@@ -1,5 +1,19 @@
 # @piqy/epos-encoder
 
+## 0.4.0
+
+### Minor Changes
+
+- 841cce0: Require the stable `effect` v4 release. The `effect` range changes from `^4.0.0-rc.110` to `^4.0.3`.
+- b2d4e83: Add the `unsupportedCharacter` option. Use `{ replace: '?' }` to print a replacement for each complete emoji sequence or other unsupported character, so that one emoji no longer stops the encoding. The default `'error'` keeps the strict behavior. The encoder now removes an emoji variation selector after a supported character, so `©️` prints as `©`. Automatic page selection now accepts characters of the active international character set, for example `₩` with `country: 'korea'`.
+
+### Patch Changes
+
+- Updated dependencies [2b1ce11]
+- Updated dependencies [841cce0]
+  - @piqy/epos-codepages@0.3.0
+  - @piqy/epos-ast@0.3.0
+
 ## 0.3.1
 
 ### Patch Changes

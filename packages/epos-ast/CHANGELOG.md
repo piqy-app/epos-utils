@@ -1,5 +1,11 @@
 # @piqy/epos-ast
 
+## 0.3.0
+
+### Minor Changes
+
+- 841cce0: Require the stable `effect` v4 release. The `effect` range changes from `^4.0.0-rc.110` to `^4.0.3`.
+
 ## 0.2.0
 
 ### Minor Changes
