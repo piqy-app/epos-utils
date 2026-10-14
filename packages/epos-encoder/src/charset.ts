@@ -489,6 +489,27 @@ export const matchCountryEncoding = (text: string, index: number, country: Count
 		?.find((encoding) => text.startsWith(encoding.token, index))
 }
 
+const maxCountryTokenLengths = new Map<Country, number>()
+
+/**
+ * Returns the UTF-16 length from index to the end of the country-table token that starts at or covers index.
+ * A covered index occurs when planning reaches the second character of a token such as Tamil கா.
+ */
+export const countryTokenLengthAt = (country: Country) => (text: string, index: number) => {
+	let maxLength = maxCountryTokenLengths.get(country)
+	if (maxLength === undefined) {
+		maxLength = Math.max(...Object.values(CHARSET_TABLES[country]).map((token) => token.length))
+		maxCountryTokenLengths.set(country, maxLength)
+	}
+	for (let start = index; start >= 0 && start > index - maxLength; start--) {
+		const end = start + (matchCountryEncoding(text, start, country)?.token.length ?? 0)
+		if (end > index) {
+			return end - index
+		}
+	}
+	return undefined
+}
+
 export const hasCountryByte = (bytes: Uint8Array, country: Country) => {
 	const table: CharTable = CHARSET_TABLES[country]
 	for (const byte of bytes) {
@@ -498,3 +519,6 @@ export const hasCountryByte = (bytes: Uint8Array, country: Country) => {
 	}
 	return false
 }
+
+/** Returns the byte positions that the country table reassigns. */
+export const countryTableBytes = (country: Country) => Object.keys(CHARSET_TABLES[country]).map(Number)
