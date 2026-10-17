@@ -53,6 +53,8 @@ Turn automatic selection off with:
 encode(receipt, { automaticCodepage: false, codepage: 0 })
 ```
 
+A `country` on a text node selects an international character set with `ESC R n`. The tables come from `@piqy/epos-codepages/international`. Use the same entry to decode printer bytes.
+
 ## Stream a receipt
 
 `encodeStream` emits the printer initialization bytes first. It then emits one byte chunk for each input node. Each run has separate printer state.

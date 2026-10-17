@@ -945,6 +945,8 @@ enum Country {
 
 India character sets (codes 66-75, 82) replace ASCII positions 30-39 with language-specific numerals.
 
+[`@piqy/epos-codepages/international`](../epos-codepages#international-character-sets) contains the character tables that the encoder uses. It also decodes printer bytes for a `Country`.
+
 ### BarcodeFormat
 
 ```idl
